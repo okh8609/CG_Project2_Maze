@@ -53,10 +53,9 @@ void OpenGLWidget::paintGL()
 		//哪邊是上面
 		//Note: You shouldn't use this function to get view matrix, otherwise you will get 0.
 		*/
-		float viewerPosX = MazeWidget::maze->viewer_posn[Maze::X];
-		float viewerPosY = MazeWidget::maze->viewer_posn[Maze::Y];
-		float viewerPosZ = MazeWidget::maze->viewer_posn[Maze::Z];
-
+		//float viewerPosX = MazeWidget::maze->viewer_posn[Maze::X];
+		//float viewerPosY = MazeWidget::maze->viewer_posn[Maze::Y];
+		//float viewerPosZ = MazeWidget::maze->viewer_posn[Maze::Z];
 		/*gluLookAt(viewerPosX, viewerPosZ, viewerPosY,
 			viewerPosX + cos(degree_change(MazeWidget::maze->viewer_dir)), viewerPosZ, viewerPosY + sin(degree_change(MazeWidget::maze->viewer_dir)),
 			0.0, -1.0, 0.0);*/
@@ -121,6 +120,45 @@ void OpenGLWidget::Map_3D()
 	glLoadIdentity();
 	// 畫右邊區塊的所有東西
 
+	//觀察者位置
+	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
+	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
+	float camPosZ = MazeWidget::maze->viewer_posn[Maze::Z];
+	float camFOV = MazeWidget::maze->viewer_fov; //視野大小
+	float camDirection = MazeWidget::maze->viewer_dir; //看向的角度
+	//看向的座標
+	float camDirectionX = camPosX + cos(degree_change(MazeWidget::maze->viewer_dir));
+	float camDirectionY = camPosY + sin(degree_change(MazeWidget::maze->viewer_dir));
+	float camDirectionZ = camPosZ;
+	//鏡頭上方(0.0, 1.0, 0.0)
+	printf("Pos(%f, %f, %f), FOV=%f, Direction=%f (%f, %f, %f)\n",
+		camPosX, camPosY, camPosZ, camFOV, camDirection, camDirectionX, camDirectionY, camDirectionZ);
+
+	//定義可以拉出視錐中左右切邊的點
+	float dist = 10; //左右切邊的長度 
+	//左切邊
+	float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(degree_change(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
+	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(degree_change(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
+	//右切邊
+	float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(degree_change(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
+	float vRy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(degree_change(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
+
+	//
+
+	////在視窗右方畫圖的範例
+	////左下角(-1,-1)；右上角(1,1)
+	//glColor3f(1.0, 0.0, 0.0);
+	//glBegin(GL_TRIANGLES);
+	//glVertex2f(-0.4, -0.4);
+	//glVertex2f(0.0, 0.4);
+	//glVertex2f(0.4, -0.4);
+	//glEnd();
+
+	///////////////////////////	
+	
+
+
+	// projection * view * model
 
 
 	/*若有興趣的話, 可以為地板或迷宮上貼圖, 此項目不影響評分*/
@@ -146,5 +184,5 @@ void OpenGLWidget::loadTexture2D(QString str, GLuint &textureID)
 }
 float OpenGLWidget::degree_change(float num)
 {
-	return num / 180.0f * 3.14159f;
+	return num / 180.0f * 3.1415926535f;
 }
