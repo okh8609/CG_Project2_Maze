@@ -53,17 +53,17 @@ World space -> Camera Space -> Perspective Projection
 
 
 ### **2. World space -> Camera Space**
-![](https://i.imgur.com/5FiGLQ4.png =500x110)
+![](https://i.imgur.com/5FiGLQ4.png)
 
-![](https://i.imgur.com/c6TSieP.png =300x90)
+![](https://i.imgur.com/c6TSieP.png)
 
 </br></br>
 ### **3. Camera Space -> Perspective Projection**
-![](https://i.imgur.com/x6BXxoj.png =350x180)
+![](https://i.imgur.com/x6BXxoj.png)
 
-![](https://i.imgur.com/t5zTH3y.png =250x100)
+![](https://i.imgur.com/t5zTH3y.png)
 
-![](https://i.imgur.com/5P5UaSo.png =450x120)
+![](https://i.imgur.com/5P5UaSo.png)
 
 <font color=#FF0000>d 要設啥???</font>
 
