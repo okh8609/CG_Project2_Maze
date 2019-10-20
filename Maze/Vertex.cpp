@@ -25,9 +25,7 @@ const char  Vertex::Y = 1;
 //
 // * Constructor
 //=================================================================================
-Vertex::
-Vertex(int i, float x, float y)
-//=================================================================================
+Vertex::Vertex(int i, float x, float y)
 {
 	index = i;
 	posn[X] = x;

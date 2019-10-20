@@ -1,17 +1,17 @@
 /************************************************************************
-     File:        LineSeg.cpp
+	 File:        LineSeg.cpp
 
-     Author:     
-                  Stephen Chenney, schenney@cs.wisc.edu
-     Modifier
-                  Yu-Chi Lai, yu-chi@cs.wisc.edu
+	 Author:
+				  Stephen Chenney, schenney@cs.wisc.edu
+	 Modifier
+				  Yu-Chi Lai, yu-chi@cs.wisc.edu
 
-     Comment:    
+	 Comment:
 						(c) 2001-2002 Stephen Chenney, University of Wisconsin at Madison
 						Class header file for LineSeg class.
-		
 
-     Platform:    Visio Studio.Net 2003 (converted to 2005)
+
+	 Platform:    Visio Studio.Net 2003 (converted to 2005)
 
 *************************************************************************/
 
@@ -21,9 +21,7 @@
 //
 // * Constructor from an edge
 //======================================================================
-LineSeg::
-LineSeg(Edge *e)
-//======================================================================
+LineSeg::LineSeg(Edge *e)
 {
 	start[0] = e->endpoints[Edge::START]->posn[Vertex::X];
 	start[1] = e->endpoints[Edge::START]->posn[Vertex::Y];
@@ -36,9 +34,7 @@ LineSeg(Edge *e)
 //
 // * Constructor for specifyng start and end point
 //======================================================================
-LineSeg::
-LineSeg(float xs, float ys, float xe, float ye)
-//======================================================================
+LineSeg::LineSeg(float xs, float ys, float xe, float ye)
 {
 	start[0] = xs;
 	start[1] = ys;
@@ -55,9 +51,7 @@ LineSeg(float xs, float ys, float xe, float ye)
 //   DOES NOT tell you whether the edge is "entering" or "leaving".
 //   But you can use tests like Edge::Point_Side() to figure that out.
 //======================================================================
-float LineSeg::
-Cross_Param(LineSeg e)
-//======================================================================
+float LineSeg::Cross_Param(LineSeg e)
 {
 	float   dx1, dy1, dx2, dy2;
 	float   denom, s;
@@ -70,11 +64,11 @@ Cross_Param(LineSeg e)
 	dx2 = end[0] - start[0];
 	dy2 = end[1] - start[1];
 
-	if ( ( denom = dx2 * dy1 - dy2 * dx1 ) == 0.0 )
+	if ((denom = dx2 * dy1 - dy2 * dx1) == 0.0)
 		// Parallel segments.
 		return 1.0e20f;
 
-	s = ( e.start[0] - start[0] ) * dy1 - ( e.start[1] - start[1] ) * dx1;
+	s = (e.start[0] - start[0]) * dy1 - (e.start[1] - start[1]) * dx1;
 
 	return s / denom;
 }
