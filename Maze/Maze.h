@@ -117,10 +117,10 @@ public:
 	Vertex	**vertices;		// An array of pointers to the vertices.
 
 	int		num_edges;		// The number of edges in the maze.
-	Edge		**edges;			// An array of pointers to the edges.
+	Edge	**edges;		// An array of pointers to the edges.
 
 	int		num_cells;     // The number of cells in the maze
-	Cell		**cells;       // An array of pointers to the cells.
+	Cell	**cells;       // An array of pointers to the cells.
 
 	float		viewer_posn[3];	// The x,y location of the viewer.
 	float		viewer_dir;			// The direction in which the viewer is

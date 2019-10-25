@@ -167,6 +167,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Helper.cpp" />
     <ClCompile Include="LineSeg.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Maze.cpp" />
@@ -218,6 +219,7 @@
     <ClInclude Include="Cell.h" />
     <ClInclude Include="Edge.h" />
     <ClInclude Include="GeneratedFiles\ui_maze.h" />
+    <ClInclude Include="Helper.h" />
     <ClInclude Include="LineSeg.h" />
     <ClInclude Include="Maze.h" />
     <ClInclude Include="Vertex.h" />

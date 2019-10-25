@@ -1,6 +1,7 @@
 #include "OpenGLWidget.h"
 #include <iostream>
 #include "MazeWidget.h"
+#include "Helper.h"
 #include <gl\gl.h>
 #include <gl\GLU.h>
 
@@ -118,21 +119,30 @@ void OpenGLWidget::Mini_Map()
 void OpenGLWidget::Map_3D()
 {
 	glLoadIdentity();
+
 	// 畫右邊區塊的所有東西
 
 	//觀察者位置
-	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
-	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
-	float camPosZ = MazeWidget::maze->viewer_posn[Maze::Z];
+	float camPosX = MazeWidget::maze->viewer_posn[Maze::X]; // x1
+	float camPosY = 0; // y1
+	float camPosZ = MazeWidget::maze->viewer_posn[Maze::Y]; // z1
+	camPosZ *= -1;
 	float camFOV = MazeWidget::maze->viewer_fov; //視野大小
-	float camDirection = MazeWidget::maze->viewer_dir; //看向的角度
+	float camDirection = MazeWidget::maze->viewer_dir; //看向的角度(跟X軸的夾角)
 	//看向的座標
-	float camDirectionX = camPosX + cos(degree_change(MazeWidget::maze->viewer_dir));
-	float camDirectionY = camPosY + sin(degree_change(MazeWidget::maze->viewer_dir));
-	float camDirectionZ = camPosZ;
+	float camDirectionX = camPosX + cos(degree_change(MazeWidget::maze->viewer_dir)); // x2
+	float camDirectionY = 0; // y2
+	float camDirectionZ = camPosY + sin(degree_change(MazeWidget::maze->viewer_dir)); // z2
+	camDirectionZ *= -1;
 	//鏡頭上方(0.0, 1.0, 0.0)
+	//鏡頭左方(Cross product)
+	float camLeftX = camPosY * camDirectionZ - camDirectionY * camPosZ;
+	float camLeftY = camPosZ * camDirectionX - camDirectionZ * camPosX;
+	float camLeftZ = camPosX * camDirectionY - camDirectionX * camPosY;
+#ifdef _DEBUG  
 	printf("Pos(%f, %f, %f), FOV=%f, Direction=%f (%f, %f, %f)\n",
 		camPosX, camPosY, camPosZ, camFOV, camDirection, camDirectionX, camDirectionY, camDirectionZ);
+#endif
 
 	//定義可以拉出視錐中左右切邊的點
 	float dist = 10; //左右切邊的長度 
@@ -143,23 +153,87 @@ void OpenGLWidget::Map_3D()
 	float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(degree_change(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	float vRy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(degree_change(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 
-	//
-
 	////在視窗右方畫圖的範例
 	////左下角(-1,-1)；右上角(1,1)
 	//glColor3f(1.0, 0.0, 0.0);
+	////glBegin(GL_POLYGON)
 	//glBegin(GL_TRIANGLES);
 	//glVertex2f(-0.4, -0.4);
 	//glVertex2f(0.0, 0.4);
 	//glVertex2f(0.4, -0.4);
 	//glEnd();
 
-	///////////////////////////	
-	
+	// World space -> Camera Space -> Perspective Projection
+	auto vertices = MazeWidget::maze->vertices;
+	auto edges = MazeWidget::maze->edges;
 
+	for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
+		if (edges[i]->opaque) // 不透明才畫
+		{
+			//準備好要畫的四個點
+			Vertex *start = edges[i]->endpoints[Edge::START];
+			Vertex *end = edges[i]->endpoints[Edge::END];
 
-	// projection * view * model
+			float x1 = start->posn[Vertex::X];
+			float y1 = start->posn[Vertex::Y];
+			float z1 = 1;
 
+			float x2 = x1;
+			float y2 = y1;
+			float z2 = -1;
+
+			float x3 = end->posn[Vertex::X];
+			float y3 = end->posn[Vertex::Y];
+			float z3 = -1;
+
+			float x4 = x3;
+			float y4 = y3;
+			float z4 = 1;
+
+			float p1[4] = { x1, y1, z1, 1.0 }; //等等記憶體可能會有問題!! 要注意!!
+			float p2[4] = { x2, y2, z2, 1.0 };
+			float p3[4] = { x3, y3, z3, 1.0 };
+			float p4[4] = { x4, y4, z4, 1.0 };
+
+			//乘上轉換矩陣 並 正規化
+			float world2camera[4][4] = { // World space -> Camera Space
+					{camLeftX, 0, camDirectionX, camPosX},
+					{camLeftY, 1, camDirectionY, camPosY},
+					{camLeftZ, 0, camDirectionZ, camPosZ},
+					{       0, 0,             0,       1}
+			};
+			float camera_perspective2screen[4][4] = { //Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
+				//參考：http://www.songho.ca/opengl/gl_projectionmatrix.html
+					{1, 0, 0, 0},
+					{0, 1, 0, 0},
+					{0, 0, 1, 0},
+					{0, 0, 0.1, 0}
+			};
+
+			auto allMatrixTogether = Helper::matrix44_X_matrix44(camera_perspective2screen, world2camera);
+
+			float* pp1 = Helper::matrix44_X_vector4(allMatrixTogether, p1);
+			pp1 = Helper::norm_vector4(pp1);
+			float* pp2 = Helper::matrix44_X_vector4(allMatrixTogether, p2);
+			pp2 = Helper::norm_vector4(pp2);
+			float* pp3 = Helper::matrix44_X_vector4(allMatrixTogether, p3);
+			pp3 = Helper::norm_vector4(pp3);
+			float* pp4 = Helper::matrix44_X_vector4(allMatrixTogether, p4);
+			pp4 = Helper::norm_vector4(pp4);
+
+			//取顏色
+			float r = edges[i]->color[0], g = edges[i]->color[1], b = edges[i]->color[2];
+
+			//畫牆
+			glColor3f(r, g, b);
+			glBegin(GL_QUADS);
+			glVertex2f(pp1[0], pp1[1]);
+			glVertex2f(pp2[0], pp2[1]);
+			glVertex2f(pp3[0], pp3[1]);
+			glVertex2f(pp4[0], pp4[1]);
+			glEnd();
+		}
+	}
 
 	/*若有興趣的話, 可以為地板或迷宮上貼圖, 此項目不影響評分*/
 	glBindTexture(GL_TEXTURE_2D, sky_ID);
@@ -168,6 +242,8 @@ void OpenGLWidget::Map_3D()
 
 	glDisable(GL_TEXTURE_2D);
 }
+
+//======================================================================
 void OpenGLWidget::loadTexture2D(QString str, GLuint &textureID)
 {
 	glGenTextures(1, &textureID);
