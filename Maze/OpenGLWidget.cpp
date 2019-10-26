@@ -164,6 +164,24 @@ void OpenGLWidget::Map_3D()
 	//glEnd();
 
 	// World space -> Camera Space -> Perspective Projection
+
+	// 定義各種轉換矩陣
+	float world2camera[4][4] = { // World space -> Camera Space
+		{camLeftX, 0, camDirectionX, camPosX},
+		{camLeftY, 1, camDirectionY, camPosY},
+		{camLeftZ, 0, camDirectionZ, camPosZ},
+		{       0, 0,             0,       1}
+	};
+	float camera_perspective2screen[4][4] = { //Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
+		//參考：http://www.songho.ca/opengl/gl_projectionmatrix.html
+			{1, 0, 0, 0},
+			{0, 1, 0, 0},
+			{0, 0, 1, 0},
+			{0, 0, 0.1, 0}
+	};
+	auto allMatrixTogether = Helper::matrix44_X_matrix44(camera_perspective2screen, world2camera);
+
+	// 準備畫牆
 	auto vertices = MazeWidget::maze->vertices;
 	auto edges = MazeWidget::maze->edges;
 
@@ -193,25 +211,9 @@ void OpenGLWidget::Map_3D()
 			float p1[4] = { x1, y1, z1, 1.0 }; //等等記憶體可能會有問題!! 要注意!!
 			float p2[4] = { x2, y2, z2, 1.0 };
 			float p3[4] = { x3, y3, z3, 1.0 };
-			float p4[4] = { x4, y4, z4, 1.0 };
+			float p4[4] = { x4, y4, z4, 1.0 };			
 
 			//乘上轉換矩陣 並 正規化
-			float world2camera[4][4] = { // World space -> Camera Space
-					{camLeftX, 0, camDirectionX, camPosX},
-					{camLeftY, 1, camDirectionY, camPosY},
-					{camLeftZ, 0, camDirectionZ, camPosZ},
-					{       0, 0,             0,       1}
-			};
-			float camera_perspective2screen[4][4] = { //Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
-				//參考：http://www.songho.ca/opengl/gl_projectionmatrix.html
-					{1, 0, 0, 0},
-					{0, 1, 0, 0},
-					{0, 0, 1, 0},
-					{0, 0, 0.1, 0}
-			};
-
-			auto allMatrixTogether = Helper::matrix44_X_matrix44(camera_perspective2screen, world2camera);
-
 			float* pp1 = Helper::matrix44_X_vector4(allMatrixTogether, p1);
 			pp1 = Helper::norm_vector4(pp1);
 			float* pp2 = Helper::matrix44_X_vector4(allMatrixTogether, p2);
