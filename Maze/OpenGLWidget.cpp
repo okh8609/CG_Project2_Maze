@@ -135,6 +135,7 @@ void OpenGLWidget::Map_3D()
 	camPosZ *= -1;
 	float camFOV = MazeWidget::maze->viewer_fov; //視野大小
 	float camDirection = MazeWidget::maze->viewer_dir; //看向的角度(跟X軸的夾角)
+	float camDirectionRad = -1 * (-90 + camDirection) * 3.14159 / 180; //看向的角度(跟X軸的夾角)(徑度)
 	//看向的座標
 	float camDirectionX = camPosX + cos(degree_change(MazeWidget::maze->viewer_dir)); // x2
 	float camDirectionY = 0; // y2
@@ -154,7 +155,7 @@ void OpenGLWidget::Map_3D()
 #endif
 
 	//定義可以拉出視錐中左右切邊的點
-	float dist = 10; //左右切邊的長度 
+	float dist = 0.1; //左右切邊的長度 
 	//左切邊
 	float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(degree_change(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
 	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(degree_change(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
@@ -162,43 +163,22 @@ void OpenGLWidget::Map_3D()
 	float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(degree_change(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	float vRy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(degree_change(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 
-	////在視窗右方畫圖的範例
-	////左下角(-1,-1)；右上角(1,1)
-	//glColor3f(1.0, 0.0, 0.0);
-	////glBegin(GL_POLYGON)
-	//glBegin(GL_TRIANGLES);
-	//glVertex2f(-0.4, -0.4);
-	//glVertex2f(0.0, 0.4);
-	//glVertex2f(0.4, -0.4);
-	//glEnd();
-
-	// World space -> Camera Space -> Perspective Projection
-
 	// 定義各種轉換矩陣
-	float allMatrixTogether[4][4] = { 0 };
-	float world2camera[4][4] = { // World space -> Camera Space
-		{camLeftX, 0, camDirectionX, camPosX},
-		{camLeftY, 1, camDirectionY, camPosY},
-		{camLeftZ, 0, camDirectionZ, camPosZ},
-		{       0, 0,             0,            1}
+	// World space -> Camera Space
+	// rotate matrix + tranlate matrix
+	float world2camera[4][4] = {
+		{cos(camDirectionRad), 0, -1 * sin(camDirectionRad), cos(camDirectionRad) * camPosX - sin(camDirectionRad) * camPosZ},
+		{                   0, 1,                         0,                                                         camPosY},
+		{sin(camDirectionRad), 0,      cos(camDirectionRad), sin(camDirectionRad) * camPosX + cos(camDirectionRad) * camPosZ},
+		{                   0, 0,                         0,                                                               1}
 	};
-	float m1[4][4] = {
-		{     camLeftX,      camLeftY,      camLeftZ, -1* camPosX},
-		{            0,             1,             0, -1* camPosY},
-		{camDirectionX, camDirectionY, camDirectionZ, -1* camPosZ},
-		{            0,             0,             0, 1}
-	};
-	float m2[4][4] = {
-		{1, 0, 0, -1 * camPosX},
-		{0, 1, 0, -1 * camPosY},
-		{0, 0, 1, -1 * camPosZ},
-		{0, 0, 0,            1}
-	};
+
+	//Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
 	float n = 0.01; // near
 	float r = 10; // right
 	float t = 10; // top
 	float f = 999999; // far (inf)
-	float camera_perspective2screen[4][4] = { //Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
+	float camera_perspective2screen[4][4] = {
 		//參考：http://www.songho.ca/opengl/gl_projectionmatrix.html
 			{n / r,     0,                 0,                    0},
 			{    0, n / t,                 0,                    0},
@@ -209,7 +189,7 @@ void OpenGLWidget::Map_3D()
 	//Helper::matrix44_X_matrix44(camera_perspective2screen, allMatrixTogether, allMatrixTogether);
 
 	//Helper::matrix44_X_matrix44(camera_perspective2screen, world2camera, allMatrixTogether);
-	Helper::matrix44_X_matrix44(camera_perspective2screen, m1, allMatrixTogether);
+	//Helper::matrix44_X_matrix44(camera_perspective2screen, m1, allMatrixTogether);
 #ifdef _DEBUG 
 	if (frameCount % 100 == 0)
 	{
@@ -218,7 +198,7 @@ void OpenGLWidget::Map_3D()
 		{
 			for (size_t j = 0; j < 4; j++)
 			{
-				std::cout << allMatrixTogether[i][j] << '\t' << '\t';
+				//std::cout << allMatrixTogether[i][j] << '\t' << '\t';
 			}
 			std::cout << endl;
 		}
@@ -235,36 +215,38 @@ void OpenGLWidget::Map_3D()
 			Vertex *start = edges[i]->endpoints[Edge::START];
 			Vertex *end = edges[i]->endpoints[Edge::END];
 
-			float x1 = start->posn[Vertex::X];
-			float y1 = start->posn[Vertex::Y];
-			float z1 = 1;
+			float x0 = start->posn[Vertex::X];
+			float z0 = start->posn[Vertex::Y];
 
-			float x2 = x1;
-			float y2 = y1;
-			float z2 = -1;
+			float x1 = end->posn[Vertex::X];
+			float z1 = end->posn[Vertex::Y];
 
-			float x3 = end->posn[Vertex::X];
-			float y3 = end->posn[Vertex::Y];
-			float z3 = -1;
+			float p0[4] = { x0, 0, z0, 1 }; //等等記憶體可能會有問題!! 要注意!!
+			float p1[4] = { x1, 0, z1, 1 };
 
-			float x4 = x3;
-			float y4 = y3;
-			float z4 = 1;
+			//旋轉到相機空間 (camera point)
+			float* cp0 = Helper::matrix44_X_vector4(world2camera, p0);
+			float* cp1 = Helper::matrix44_X_vector4(world2camera, p1);
 
-			float p1[4] = { x1, y1, z1, 1.0 }; //等等記憶體可能會有問題!! 要注意!!
-			float p2[4] = { x2, y2, z2, 1.0 };
-			float p3[4] = { x3, y3, z3, 1.0 };
-			float p4[4] = { x4, y4, z4, 1.0 };
+			//牆壁的四個點 (view point) (3維)
+			float vp0[4] = { cp0[0], 1, cp0[1], 1 };
+			float vp1[4] = { cp0[0], -1, cp0[1], 1 };
+			float vp2[4] = { cp1[0], 1, cp1[1], 1 };
+			float vp3[4] = { cp1[0], -1, cp1[1], 1 };
 
-			//乘上轉換矩陣 並 正規化
-			float* pp1 = Helper::matrix44_X_vector4(allMatrixTogether, p1);
-			pp1 = Helper::norm_vector4(pp1);
-			float* pp2 = Helper::matrix44_X_vector4(allMatrixTogether, p2);
-			pp2 = Helper::norm_vector4(pp2);
-			float* pp3 = Helper::matrix44_X_vector4(allMatrixTogether, p3);
-			pp3 = Helper::norm_vector4(pp3);
-			float* pp4 = Helper::matrix44_X_vector4(allMatrixTogether, p4);
-			pp4 = Helper::norm_vector4(pp4);
+			//牆壁的四個點 (wall point) (投影到2維)
+			//perspective
+			float *wp0 = Helper::matrix44_X_vector4(camera_perspective2screen, vp0);
+			float *wp1 = Helper::matrix44_X_vector4(camera_perspective2screen, vp1);
+			float *wp2 = Helper::matrix44_X_vector4(camera_perspective2screen, vp2);
+			float *wp3 = Helper::matrix44_X_vector4(camera_perspective2screen, vp3);
+
+
+			//正規化
+			Helper::norm_vector4(wp0);
+			Helper::norm_vector4(wp1);
+			Helper::norm_vector4(wp2);
+			Helper::norm_vector4(wp3);
 
 			//取顏色
 			float r = edges[i]->color[0], g = edges[i]->color[1], b = edges[i]->color[2];
@@ -272,10 +254,10 @@ void OpenGLWidget::Map_3D()
 			//畫牆
 			glColor3f(r, g, b);
 			glBegin(GL_QUADS);
-			glVertex2f(pp1[0], pp1[1]);
-			glVertex2f(pp2[0], pp2[1]);
-			glVertex2f(pp3[0], pp3[1]);
-			glVertex2f(pp4[0], pp4[1]);
+			glVertex2f(wp0[0], wp0[1]);
+			glVertex2f(wp1[0], wp1[1]);
+			glVertex2f(wp2[0], wp2[1]);
+			glVertex2f(wp3[0], wp3[1]);
 			glEnd();
 		}
 	}

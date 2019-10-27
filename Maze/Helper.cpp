@@ -48,13 +48,18 @@ float * Helper::matrix44_X_vector4(float M[4][4], float V[4])
 // 4維向量 Normalize
 //  input: 四維向量
 // output: 三維向量
-float * Helper::norm_vector4(float V[4])
+void Helper::norm_vector4(float V[4])
 {
 	float *R = new float[3]; //result
 	R[0] = V[0] / V[3];
 	R[1] = V[1] / V[3];
 	R[2] = V[2] / V[3];
-	return R;
+
+	V[0] = R[0];
+	V[1] = R[1];
+	V[2] = R[2];
+	V[3] = 0; //沒用的東西 ㄎㄎ
+	//return R;
 }
 
 Helper::Helper()
