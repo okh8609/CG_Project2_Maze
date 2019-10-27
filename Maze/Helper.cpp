@@ -2,7 +2,7 @@
 
 // 4X4矩陣 乘 4X4矩陣 
 // 輸出為一個 4X4矩陣
-float ** Helper::matrix44_X_matrix44(float A[4][4], float B[4][4])
+void Helper::matrix44_X_matrix44(float A[4][4], float B[4][4], float RR[4][4])
 {
 	const int size = 4;
 
@@ -22,13 +22,20 @@ float ** Helper::matrix44_X_matrix44(float A[4][4], float B[4][4])
 			R[i][j] = num;
 		}
 	}
-	return R;
+	//return R;
+	for (int i = 0; i < size; ++i)
+	{
+		for (int j = 0; j < size; ++j)
+		{
+			RR[i][j] = R[i][j];
+		}
+	}
 }
 
 // 4X4矩陣 乘 4維向量
 // 輸出為一個四維的向量
 //float* matrix44_X_vector4(float M[4][4], float V[4])
-float * Helper::matrix44_X_vector4(float ** M, float V[4])
+float * Helper::matrix44_X_vector4(float M[4][4], float V[4])
 {
 	float *R = new float[4]; //result
 	R[0] = V[0] * M[0][0] + V[1] * M[0][1] + V[2] * M[0][2] + V[3] * M[0][3];

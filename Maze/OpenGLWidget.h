@@ -2,6 +2,9 @@
 #include <QGLWidget>
 #include <QString>
 #include <QDir>
+
+using namespace std;
+
 class OpenGLWidget :public QGLWidget
 {
 	Q_OBJECT

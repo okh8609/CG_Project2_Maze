@@ -118,6 +118,12 @@ void OpenGLWidget::Mini_Map()
 //======================================================================
 void OpenGLWidget::Map_3D()
 {
+#ifdef _DEBUG  
+	static int frameCount = -1;
+	++frameCount;
+	frameCount %= 10000;
+#endif
+
 	glLoadIdentity();
 
 	// 畫右邊區塊的所有東西
@@ -140,8 +146,11 @@ void OpenGLWidget::Map_3D()
 	float camLeftY = camPosZ * camDirectionX - camDirectionZ * camPosX;
 	float camLeftZ = camPosX * camDirectionY - camDirectionX * camPosY;
 #ifdef _DEBUG  
-	printf("Pos(%f, %f, %f), FOV=%f, Direction=%f (%f, %f, %f)\n",
-		camPosX, camPosY, camPosZ, camFOV, camDirection, camDirectionX, camDirectionY, camDirectionZ);
+	if (frameCount % 100 == 0) {
+		system("CLS");
+		printf("Pos(%f, %f, %f), FOV=%f, Direction=%f (%f, %f, %f)\n",
+			camPosX, camPosY, camPosZ, camFOV, camDirection, camDirectionX, camDirectionY, camDirectionZ);
+	}
 #endif
 
 	//定義可以拉出視錐中左右切邊的點
@@ -166,21 +175,55 @@ void OpenGLWidget::Map_3D()
 	// World space -> Camera Space -> Perspective Projection
 
 	// 定義各種轉換矩陣
+	float allMatrixTogether[4][4] = { 0 };
 	float world2camera[4][4] = { // World space -> Camera Space
 		{camLeftX, 0, camDirectionX, camPosX},
 		{camLeftY, 1, camDirectionY, camPosY},
 		{camLeftZ, 0, camDirectionZ, camPosZ},
-		{       0, 0,             0,       1}
+		{       0, 0,             0,            1}
 	};
+	float m1[4][4] = {
+		{     camLeftX,      camLeftY,      camLeftZ, -1* camPosX},
+		{            0,             1,             0, -1* camPosY},
+		{camDirectionX, camDirectionY, camDirectionZ, -1* camPosZ},
+		{            0,             0,             0, 1}
+	};
+	float m2[4][4] = {
+		{1, 0, 0, -1 * camPosX},
+		{0, 1, 0, -1 * camPosY},
+		{0, 0, 1, -1 * camPosZ},
+		{0, 0, 0,            1}
+	};
+	float n = 0.01; // near
+	float r = 10; // right
+	float t = 10; // top
+	float f = 999999; // far (inf)
 	float camera_perspective2screen[4][4] = { //Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
 		//參考：http://www.songho.ca/opengl/gl_projectionmatrix.html
-			{1, 0, 0, 0},
-			{0, 1, 0, 0},
-			{0, 0, 1, 0},
-			{0, 0, 0.1, 0}
+			{n / r,     0,                 0,                    0},
+			{    0, n / t,                 0,                    0},
+			{    0,     0, (f + n) / (n - f), (-2 * f*n) / (f - n)},
+			{    0,     0,                -1,                    0}
 	};
-	auto allMatrixTogether = Helper::matrix44_X_matrix44(camera_perspective2screen, world2camera);
+	//Helper::matrix44_X_matrix44(m1, m2, allMatrixTogether);
+	//Helper::matrix44_X_matrix44(camera_perspective2screen, allMatrixTogether, allMatrixTogether);
 
+	//Helper::matrix44_X_matrix44(camera_perspective2screen, world2camera, allMatrixTogether);
+	Helper::matrix44_X_matrix44(camera_perspective2screen, m1, allMatrixTogether);
+#ifdef _DEBUG 
+	if (frameCount % 100 == 0)
+	{
+		std::cout << endl;
+		for (size_t i = 0; i < 4; i++)
+		{
+			for (size_t j = 0; j < 4; j++)
+			{
+				std::cout << allMatrixTogether[i][j] << '\t' << '\t';
+			}
+			std::cout << endl;
+		}
+	}
+#endif
 	// 準備畫牆
 	auto vertices = MazeWidget::maze->vertices;
 	auto edges = MazeWidget::maze->edges;
@@ -211,7 +254,7 @@ void OpenGLWidget::Map_3D()
 			float p1[4] = { x1, y1, z1, 1.0 }; //等等記憶體可能會有問題!! 要注意!!
 			float p2[4] = { x2, y2, z2, 1.0 };
 			float p3[4] = { x3, y3, z3, 1.0 };
-			float p4[4] = { x4, y4, z4, 1.0 };			
+			float p4[4] = { x4, y4, z4, 1.0 };
 
 			//乘上轉換矩陣 並 正規化
 			float* pp1 = Helper::matrix44_X_vector4(allMatrixTogether, p1);
