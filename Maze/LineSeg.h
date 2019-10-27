@@ -31,11 +31,11 @@ public:
 	LineSeg(Edge*);
 
 public:
-	// Return the parameter value at which this segment crosses the given
-	// segment. This will return parameter values outside the range 0,1
-	// THIS FUNCTION IS EXTREMELY USEFUL FOR CLIPPING, but it 
-	// DOES NOT tell you whether the edge is "entering" or "leaving".
-	// But you can use tests like Edge::Point_Side() to figure that out.
+	/*
+	 Return the parameter value at which this segment crosses the given segment. 
+	 This will return parameter values outside the range 0,1 THIS FUNCTION IS EXTREMELY USEFUL FOR CLIPPING, but it  DOES NOT tell you whether the edge is "entering" or "leaving". 
+	 But you can use tests like Edge::Point_Side() to figure that out.
+	*/
 	float   Cross_Param(LineSeg);
 
 public:

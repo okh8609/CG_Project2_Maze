@@ -25,6 +25,7 @@ public:
 	// Constructor takes the index, pointers to the start and end
 	// vertices, and r, g and b for the color.
 	Edge(int, Vertex*, Vertex*, float, float, float);
+	Edge(float sx, float sy, float ex, float ey); //temp edge
 
 public:
 	// Add a cell to the neighbors of this edge. Valid values for

@@ -71,6 +71,16 @@ bool Cell::Point_In_Cell(const float x, const float y, const float z, Cell* &nei
 	return true;
 }
 
+bool Cell::Point_In_Cell(const float x, const float y)
+{
+	for (int i = 0; i < 4; i++) {
+		if (edges[i]->Cell_Side(this) != edges[i]->Point_Side(x, y)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 //***********************************************************************
 //
 // * Clip the segment (xs,ys)->(xe,ye) to the cell. If the segment

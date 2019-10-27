@@ -5,6 +5,10 @@
 #include <gl\gl.h>
 #include <gl\GLU.h>
 
+#ifdef _DEBUG 
+;
+#endif
+
 OpenGLWidget::OpenGLWidget(QWidget *parent) : QGLWidget(parent)
 {
 
@@ -96,10 +100,11 @@ void OpenGLWidget::Mini_Map()
 	//draw frustum
 	float len = 0.1;
 	glColor3f(1, 1, 1);
+	//右
 	glVertex2f(viewerPosX, viewerPosY);
 	glVertex2f(viewerPosX + (MazeWidget::maze->max_xp) * len * cos(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2)),
 		viewerPosY + (MazeWidget::maze->max_yp) * len * sin(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2)));
-
+	//左
 	glVertex2f(viewerPosX, viewerPosY);
 	glVertex2f(viewerPosX + (MazeWidget::maze->max_xp) * len * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)),
 		viewerPosY + (MazeWidget::maze->max_yp) * len *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)));
@@ -134,6 +139,8 @@ void OpenGLWidget::Map_3D()
 	float camPosZ = MazeWidget::maze->viewer_posn[Maze::Y] * -1; // z1
 	float camFOV = MazeWidget::maze->viewer_fov; //視野大小FOV
 	float camFOV_half_rad = deg2rad(camFOV / 2); //視野大小FOV 的一半 (徑度)
+	float camLeftFOV = 90 + camFOV / 2;
+	float camRightFOV = 90 - camFOV / 2;
 	float camDirection = MazeWidget::maze->viewer_dir; //看向的角度(跟X軸的夾角)
 	float camDirectionRad = -1 * (-90 + camDirection) * 3.14159 / 180; //看向的角度(跟X軸的夾角)(徑度)
 	//看向的座標
@@ -147,6 +154,16 @@ void OpenGLWidget::Map_3D()
 	float camLeftX = camPosY * camDirectionZ - camDirectionY * camPosZ;
 	float camLeftY = camPosZ * camDirectionX - camDirectionZ * camPosX;
 	float camLeftZ = camPosX * camDirectionY - camDirectionX * camPosY;
+	//定義可以拉出視錐中左右切邊的點
+	float dist = 0.1; //左右切邊的長度 
+	//右切邊
+	float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
+	float vRy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
+	Edge eR(camPosX, camPosZ, vRx, vRy);
+	//左切邊
+	float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
+	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
+	Edge eL(camPosX, camPosZ, vLx, vLy);
 #ifdef _DEBUG  
 	if (frameCount % 100 == 0) {
 		system("CLS");
@@ -154,14 +171,6 @@ void OpenGLWidget::Map_3D()
 			camPosX, camPosY, camPosZ, camFOV, camDirection, camDirectionX, camDirectionY, camDirectionZ);
 	}
 #endif
-	//定義可以拉出視錐中左右切邊的點
-	float dist = 0.1; //左右切邊的長度 
-	//左切邊
-	float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
-	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
-	//右切邊
-	float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
-	float vRy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 
 	// 定義各種轉換矩陣
 	// World space -> Camera Space
@@ -176,38 +185,38 @@ void OpenGLWidget::Map_3D()
 	//Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
 	//相似三角形，乘個tan()就好了
 	float perspectiveTangent = tan(camFOV_half_rad);
-	//
-#ifdef _DEBUG 
-	if (frameCount % 100 == 0)
-	{
-		std::cout << endl;
-		for (size_t i = 0; i < 4; i++)
-		{
-			for (size_t j = 0; j < 4; j++)
-			{
-				//std::cout << allMatrixTogether[i][j] << '\t' << '\t';
-			}
-			std::cout << endl;
-		}
-	}
-#endif
-	
-	// 準備畫牆
+
+	//拿取一些等等會用到的東西
 	auto vertices = MazeWidget::maze->vertices;
 	auto edges = MazeWidget::maze->edges;
+	auto cells = MazeWidget::maze->cells;
 
-	for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
-		//int i = 2; {
-		if (edges[i]->opaque) // 不透明才畫
+	//找目前相機所在的Cell
+	int inCellIndex = -1;//相機所在的cell 的index
+	for (int i = 0; i != MazeWidget::maze->num_cells; ++i)
+	{
+		if (cells[i]->Point_In_Cell(camPosX, camPosZ))
 		{
-			//準備好要畫的四個點
-			Vertex *start = edges[i]->endpoints[Edge::START];
-			Vertex *end = edges[i]->endpoints[Edge::END];
-			drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
-				edges[i]->color[0], edges[i]->color[1], edges[i]->color[2], world2camera, perspectiveTangent);
+			inCellIndex = i;
+			break;
 		}
 	}
 
+	//遞迴去畫cell吧	
+	drawCell(inCellIndex, camLeftFOV, camRightFOV, -1, world2camera, perspectiveTangent);
+
+	//// 準備畫牆
+	//for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
+	//	//int i = 2; {
+	//	if (edges[i]->opaque) // 不透明才畫
+	//	{
+	//		//準備好要畫的四個點
+	//		Vertex *start = edges[i]->endpoints[Edge::START];
+	//		Vertex *end = edges[i]->endpoints[Edge::END];
+	//		drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
+	//			edges[i]->color[0], edges[i]->color[1], edges[i]->color[2], world2camera, perspectiveTangent);
+	//	}
+	//}
 
 	/*若有興趣的話, 可以為地板或迷宮上貼圖, 此項目不影響評分*/
 	glBindTexture(GL_TEXTURE_2D, sky_ID);
@@ -241,7 +250,7 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, flo
 {
 	//準備好要畫的四個點
 	float p0[4] = { sx, 0, sy, 1 };
-	float p1[4] = { ex, 0,  ey, 1 };
+	float p1[4] = { ex, 0, ey, 1 };
 
 	//旋轉到相機空間 (camera point)
 	float* cp0 = Helper::matrix44_X_vector4(world2camera, p0);
@@ -266,4 +275,113 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, flo
 	glVertex2f(cp1[0], cp1[2] * -1);
 	glVertex2f(cp1[0], cp1[2]);
 	glEnd();
+}
+
+void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge, float world2camera[4][4], float perspectiveTangent)
+{
+	return;
+	//拿取一些等等會用到的東西
+	auto vertices = MazeWidget::maze->vertices;
+	auto edges = MazeWidget::maze->edges;
+	auto cells = MazeWidget::maze->cells;
+	auto cc = cells[currCellIndex];
+
+	for (int i = 0; i != 4; ++i)
+	{
+		auto ee = cc->edges[i];
+
+		if (ee->opaque) //不透明的牆邊
+		{
+			//觀察者位置
+			float camPosX = MazeWidget::maze->viewer_posn[Maze::X] * -1; // x1
+			float camPosY = 0; // y1
+			float camPosZ = MazeWidget::maze->viewer_posn[Maze::Y] * -1; // z1
+			//定義可以拉出視錐中左右切邊的點
+			float dist = 0.1; //左右切邊的長度 
+			//右切邊
+			float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
+			float vRy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
+			Edge eR(camPosX, camPosZ, vRx, vRy);
+			//左切邊
+			float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
+			float vLy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
+			Edge eL(camPosX, camPosZ, vLx, vLy);
+
+			Vertex *start = ee->endpoints[Edge::START];
+			Vertex *end = ee->endpoints[Edge::END];
+			auto sr = eR.Point_Side(start->posn[Vertex::X], start->posn[Vertex::Y]); //起始點 和 右切邊 的關係
+			auto sl = eL.Point_Side(start->posn[Vertex::X], start->posn[Vertex::Y]); //起始點 和 左切邊 的關係
+			auto er = eR.Point_Side(end->posn[Vertex::X], end->posn[Vertex::Y]); //終點 和 右切邊 的關係
+			auto el = eL.Point_Side(end->posn[Vertex::X], end->posn[Vertex::Y]); //終點 和 左切邊 的關係
+
+
+			//ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+
+
+			// 剪裁
+
+			// 下列幾種情況，才有可能畫出來
+			if ((sr == Edge::LEFT || sr == Edge::ON) && //在視錐內/上
+				(sl == Edge::RIGHT || sl == Edge::ON) &&
+				(er == Edge::LEFT || er == Edge::ON) &&
+				(el == Edge::RIGHT || el == Edge::ON))
+			{
+
+			}
+			else if ((sr == Edge::RIGHT) && (sl == Edge::RIGHT) && //交右
+				(er == Edge::LEFT || er == Edge::ON) &&
+				(el == Edge::RIGHT || el == Edge::ON))
+			{
+
+			}
+			else if ((er == Edge::RIGHT) && (el == Edge::RIGHT) && //交右
+				(sr == Edge::LEFT || sr == Edge::ON) &&
+				(sl == Edge::RIGHT || sl == Edge::ON))
+			{
+
+			}
+			else if ((sr == Edge::LEFT) && (sl == Edge::LEFT) && //交左
+				(er == Edge::LEFT || er == Edge::ON) &&
+				(el == Edge::RIGHT || el == Edge::ON))
+			{
+
+			}
+			else if ((er == Edge::LEFT) && (el == Edge::LEFT) && //交左
+				(sr == Edge::LEFT || sr == Edge::ON) &&
+				(sl == Edge::RIGHT || sl == Edge::ON))
+			{
+
+			}
+			else if ((er == Edge::LEFT) && (el == Edge::LEFT) && //雙交
+				(sr == Edge::RIGHT) && (sl == Edge::RIGHT))
+			{
+
+
+				//然後要去判斷剪裁後，在不在該在的線上，再去判斷要不要畫。
+				if (0)
+				{
+					//
+				}
+			}
+			else if ((er == Edge::RIGHT) && (el == Edge::RIGHT) && //雙交
+				(sr == Edge::LEFT) && (sl == Edge::LEFT))
+			{
+
+
+				//然後要去判斷剪裁後，在不在該在的線上，再去判斷要不要畫。
+				if (0)
+				{
+					//
+				}
+			}
+
+
+			// 畫牆
+			//drawWall();
+		}
+		else //透明的，找鄰居來畫
+		{
+
+		}
+	}
 }

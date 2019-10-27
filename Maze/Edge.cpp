@@ -49,6 +49,21 @@ Edge::Edge(int i, Vertex *start, Vertex *end, float r, float g, float b)
 	color[2] = b;
 }
 
+Edge::Edge(float sx, float sy, float ex, float ey)
+{
+	index = -1;
+	endpoints[START] =new Vertex(-1,sx,sy);
+	endpoints[END] = new Vertex(-1, ex, ey);
+
+	neighbors[0] = neighbors[1] = NULL;
+
+	opaque = true;
+
+	color[0] = 0;
+	color[1] = 0;
+	color[2] = 0;
+}
+
 //***********************************************************************
 //
 // * Returns which side of the edge a cell lies. Valid return values are
