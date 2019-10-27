@@ -314,74 +314,160 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 			auto er = eR.Point_Side(end->posn[Vertex::X], end->posn[Vertex::Y]); //終點 和 右切邊 的關係
 			auto el = eL.Point_Side(end->posn[Vertex::X], end->posn[Vertex::Y]); //終點 和 左切邊 的關係
 
-
-			//ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
-
-
-			// 剪裁
-
 			// 下列幾種情況，才有可能畫出來
 			if ((sr == Edge::LEFT || sr == Edge::ON) && //在視錐內/上
 				(sl == Edge::RIGHT || sl == Edge::ON) &&
 				(er == Edge::LEFT || er == Edge::ON) &&
 				(el == Edge::RIGHT || el == Edge::ON))
 			{
-
+				// 剪裁
+				// 畫牆
+				drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
+					ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
 			}
 			else if ((sr == Edge::RIGHT) && (sl == Edge::RIGHT) && //交右
 				(er == Edge::LEFT || er == Edge::ON) &&
 				(el == Edge::RIGHT || el == Edge::ON))
 			{
-
+				float xi = 0, yi = 0;
+				// 剪裁
+				if (getIntersection(camPosX, camPosZ, vRx, vRy,
+					start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi, &yi) == 1)
+				{
+					// 畫牆
+					drawWall(xi, yi, end->posn[Vertex::X], end->posn[Vertex::Y],
+						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+				}
 			}
 			else if ((er == Edge::RIGHT) && (el == Edge::RIGHT) && //交右
 				(sr == Edge::LEFT || sr == Edge::ON) &&
 				(sl == Edge::RIGHT || sl == Edge::ON))
 			{
-
+				float xi = 0, yi = 0;
+				// 剪裁
+				if (getIntersection(camPosX, camPosZ, vRx, vRy,
+					start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi, &yi) == 1)
+				{
+					// 畫牆
+					drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], xi, yi,
+						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+				}
 			}
 			else if ((sr == Edge::LEFT) && (sl == Edge::LEFT) && //交左
 				(er == Edge::LEFT || er == Edge::ON) &&
 				(el == Edge::RIGHT || el == Edge::ON))
 			{
-
+				float xi = 0, yi = 0;
+				// 剪裁
+				if (getIntersection(camPosX, camPosZ, vLx, vLy,
+					start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi, &yi) == 1)
+				{
+					// 畫牆
+					drawWall(xi, yi, end->posn[Vertex::X], end->posn[Vertex::Y],
+						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+				}
 			}
 			else if ((er == Edge::LEFT) && (el == Edge::LEFT) && //交左
 				(sr == Edge::LEFT || sr == Edge::ON) &&
 				(sl == Edge::RIGHT || sl == Edge::ON))
 			{
-
+				float xi = 0, yi = 0;
+				// 剪裁
+				if (getIntersection(camPosX, camPosZ, vLx, vLy,
+					start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi, &yi) == 1)
+				{
+					// 畫牆
+					drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], xi, yi,
+						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+				}
 			}
 			else if ((er == Edge::LEFT) && (el == Edge::LEFT) && //雙交
 				(sr == Edge::RIGHT) && (sl == Edge::RIGHT))
 			{
-
-
-				//然後要去判斷剪裁後，在不在該在的線上，再去判斷要不要畫。
-				if (0)
+				float xi0 = 0, yi0 = 0, xi1 = 0, yi1 = 0;
+				// 剪裁
+				if ((getIntersection(camPosX, camPosZ, vRx, vRy, start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi0, &yi0) == 1) &&
+					(getIntersection(camPosX, camPosZ, vLx, vLy, start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi1, &yi1) == 1))
 				{
-					//
+					//相機的左方 邊
+					float cL_line_x = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
+					float cL_line_y = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2));
+					Edge eL_line(camPosX, camPosZ, cL_line_x, cL_line_y);
+
+					//剪裁後，兩個點都位於相機前方才畫。
+					//兩點都在 "相機左方向量線" 的右邊，才畫。
+					if (eL_line.Point_Side(xi0, yi0) == Edge::RIGHT &&
+						eL_line.Point_Side(xi1, yi1) == Edge::RIGHT)
+					{
+						// 畫牆
+						drawWall(xi0, yi0, xi1, yi1,
+							ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+					}
 				}
 			}
 			else if ((er == Edge::RIGHT) && (el == Edge::RIGHT) && //雙交
 				(sr == Edge::LEFT) && (sl == Edge::LEFT))
 			{
-
-
-				//然後要去判斷剪裁後，在不在該在的線上，再去判斷要不要畫。
-				if (0)
+				float xi0 = 0, yi0 = 0, xi1 = 0, yi1 = 0;
+				// 剪裁
+				if ((getIntersection(camPosX, camPosZ, vRx, vRy, start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi0, &yi0) == 1) &&
+					(getIntersection(camPosX, camPosZ, vLx, vLy, start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y], &xi1, &yi1) == 1))
 				{
-					//
+					//相機的左方 邊
+					float cL_line_x = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir - 90));
+					float cL_line_y = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir - 90));
+					Edge eL_line(camPosX, camPosZ, cL_line_x, cL_line_y);
+
+					//剪裁後，兩個點都位於相機前方才畫。
+					//兩點都在 "相機左方向量線" 的右邊，才畫。
+					if (eL_line.Point_Side(xi0, yi0) == Edge::RIGHT &&
+						eL_line.Point_Side(xi1, yi1) == Edge::RIGHT)
+					{
+						// 畫牆
+						drawWall(xi0, yi0, xi1, yi1,
+							ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+					}
 				}
 			}
-
-
-			// 畫牆
-			//drawWall();
 		}
 		else //透明的，找鄰居來畫
 		{
 
 		}
 	}
+}
+
+int OpenGLWidget::getIntersection(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float * x, float * y)
+{
+	float s02x, s02y, s10x, s10y, s32x, s32y, s_numer, t_numer, denom, t;
+	s10x = x1 - x0;
+	s10y = y1 - y0;
+	s32x = x3 - x2;
+	s32y = y3 - y2;
+
+	denom = s10x * s32y - s32x * s10y;
+	if (denom == 0)//平行或共線
+		return 0; // Collinear
+
+	s02x = x0 - x2;
+	s02y = y0 - y2;
+	s_numer = s10x * s02y - s10y * s02x;
+
+	//參數是大於等於0且小於等於1的，分子分母必須同號且分子小於等於分母
+	if ((s_numer < 0) == (denom > 0))
+		return 0; // No collision
+	t_numer = s32x * s02y - s32y * s02x;
+	if ((t_numer < 0) == (denom > 0))
+		return 0; // No collision
+	if (fabs(s_numer) > fabs(denom) || fabs(t_numer) > fabs(denom))
+		return 0; // No collision
+
+	// Collision detected
+	t = t_numer / denom;
+	if (x != NULL)
+		*x = x0 + (t * s10x);
+	if (y != NULL)
+		*y = y0 + (t * s10y);
+
+	return 1;
 }

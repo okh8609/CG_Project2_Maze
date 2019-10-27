@@ -13,7 +13,7 @@ public:
 
 	void initializeGL();
 	void paintGL();
-	void resizeGL(int ,int);
+	void resizeGL(int, int);
 
 	//Maze Setting
 	void Mini_Map();
@@ -30,7 +30,10 @@ private:
 
 	// 起點 sx sy；終點 ex ey；顏色 r g b；轉換矩陣；轉換tan()
 	void drawWall(float sx, float sy, float ex, float ey, float r, float g, float b, float world2camera[4][4], float perspectiveTangent);
+
 	void drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge, float world2camera[4][4], float perspectiveTangent);
+
+	int getIntersection(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float *x, float *y);
 
 };
 
