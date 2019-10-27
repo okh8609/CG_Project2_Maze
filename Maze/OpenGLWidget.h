@@ -28,6 +28,7 @@ private:
 	float top_z;
 	float but_z;
 
-
+	// 起點 sx sy；終點 ex ey；顏色 r g b；轉換矩陣；轉換tan()
+	void drawWall(float sx, float sy, float ex, float ey, float r, float g, float b, float world2camera[4][4], float perspectiveTangent);
 };
 

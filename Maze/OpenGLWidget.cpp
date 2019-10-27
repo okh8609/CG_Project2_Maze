@@ -191,48 +191,23 @@ void OpenGLWidget::Map_3D()
 		}
 	}
 #endif
+	
 	// 準備畫牆
 	auto vertices = MazeWidget::maze->vertices;
 	auto edges = MazeWidget::maze->edges;
 
-	//for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
-		int i = 2;{
+	for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
+		//int i = 2; {
 		if (edges[i]->opaque) // 不透明才畫
 		{
 			//準備好要畫的四個點
 			Vertex *start = edges[i]->endpoints[Edge::START];
 			Vertex *end = edges[i]->endpoints[Edge::END];
-			float p0[4] = { start->posn[Vertex::X], 0, start->posn[Vertex::Y], 1 };
-			float p1[4] = { end->posn[Vertex::X], 0,   end->posn[Vertex::Y], 1 };
-
-			//旋轉到相機空間 (camera point)
-			float* cp0 = Helper::matrix44_X_vector4(world2camera, p0);
-			float* cp1 = Helper::matrix44_X_vector4(world2camera, p1);
-
-			//轉到 [-1, -1] to [1, 1] 
-			float xxx, zzz;
-			xxx = cp0[0];
-			zzz = cp0[2];
-			cp0[0] = xxx / (zzz * perspectiveTangent);
-			cp0[2] = 1 / (zzz * perspectiveTangent);
-			xxx = cp1[0];
-			zzz = cp1[2];
-			cp1[0] = xxx / (zzz * perspectiveTangent);
-			cp1[2] = 1 / (zzz * perspectiveTangent);
-
-			//取顏色
-			float r = edges[i]->color[0], g = edges[i]->color[1], b = edges[i]->color[2];
-
-			//畫牆
-			glColor3f(r, g, b);
-			glBegin(GL_QUADS);
-			glVertex2f(cp0[0], cp0[2]);
-			glVertex2f(cp0[0], cp0[2] * -1);
-			glVertex2f(cp1[0], cp1[2] * -1);
-			glVertex2f(cp1[0], cp1[2]);
-			glEnd();
+			drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
+				edges[i]->color[0], edges[i]->color[1], edges[i]->color[2], world2camera, perspectiveTangent);
 		}
 	}
+
 
 	/*若有興趣的話, 可以為地板或迷宮上貼圖, 此項目不影響評分*/
 	glBindTexture(GL_TEXTURE_2D, sky_ID);
@@ -260,4 +235,35 @@ void OpenGLWidget::loadTexture2D(QString str, GLuint &textureID)
 float OpenGLWidget::deg2rad(float num)
 {
 	return num * 3.14159265f / 180.0f;
+}
+
+void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, float g, float b, float world2camera[4][4], float perspectiveTangent)
+{
+	//準備好要畫的四個點
+	float p0[4] = { sx, 0, sy, 1 };
+	float p1[4] = { ex, 0,  ey, 1 };
+
+	//旋轉到相機空間 (camera point)
+	float* cp0 = Helper::matrix44_X_vector4(world2camera, p0);
+	float* cp1 = Helper::matrix44_X_vector4(world2camera, p1);
+
+	//轉到 [-1, -1] to [1, 1] 
+	float xxx, zzz;
+	xxx = cp0[0];
+	zzz = cp0[2];
+	cp0[0] = xxx / (zzz * perspectiveTangent);
+	cp0[2] = 1 / (zzz * perspectiveTangent);
+	xxx = cp1[0];
+	zzz = cp1[2];
+	cp1[0] = xxx / (zzz * perspectiveTangent);
+	cp1[2] = 1 / (zzz * perspectiveTangent);
+
+	//畫牆
+	glColor3f(r, g, b);
+	glBegin(GL_QUADS);
+	glVertex2f(cp0[0], cp0[2]);
+	glVertex2f(cp0[0], cp0[2] * -1);
+	glVertex2f(cp1[0], cp1[2] * -1);
+	glVertex2f(cp1[0], cp1[2]);
+	glEnd();
 }
