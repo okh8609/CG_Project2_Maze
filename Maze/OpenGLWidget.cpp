@@ -232,6 +232,65 @@ float OpenGLWidget::deg2rad(float num)
 
 void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, float gg, float bb)
 {
+	
+	// World space -> Camera Space (2D)
+
+	// 算這些矩陣 其實可以拿到外面去算 ㄏ
+	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
+	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
+	float camDv[2] = { cos(deg2rad(MazeWidget::maze->viewer_dir)), sin(deg2rad(MazeWidget::maze->viewer_dir)) }; //相機看向的向量(camera direction vector)
+	float camRv[2] = { cos(deg2rad(MazeWidget::maze->viewer_dir - 90)), sin(deg2rad(MazeWidget::maze->viewer_dir - 90)) }; //相機右方的向量(camera right vector)
+#ifdef _DEBUG  
+	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
+		printf("[drawWall] Pos(%f, %f), camDv=(%f, %f), camRv=(%f, %f)\n",
+			camPosX, camPosY, camDv[0], camDv[1], camRv[0], camRv[1]);
+	}
+#endif
+
+	//正規化 (長度變1)
+	float temp = 0.0;
+
+	//找[Rv Dv]反矩陣  ??聽說 旋轉矩陣的直接transpose就是inverse了 =.=??
+	temp = camRv[0] * camDv[1] - camDv[0] * camRv[1];
+	//float invRvDv[2][2] = { {      camDv[1] / temp, -1 * camDv[0] / temp },
+	//						{ -1 * camRv[1] / temp,      camRv[0] / temp } };
+	float invRvDv[2][2] = { {camRv[0], camRv[1]},
+		     				{camDv[0], camDv[1]} };
+
+	// x y 轉換到 Camera Space (2D)
+	// (原座標 - camPos) 在乘上[Rv Dv]反矩陣
+	float sp[2] = { (sx - camPosX)  * (invRvDv[0][0]) + (sy - camPosY) * (invRvDv[0][1]),
+					(sx - camPosX)  * (invRvDv[1][0]) + (sy - camPosY) * (invRvDv[1][1]) }; //start point
+	float ep[2] = { (ex - camPosX)  * (invRvDv[0][0]) + (ey - camPosY) * (invRvDv[0][1]),
+					(ex - camPosX)  * (invRvDv[1][0]) + (ey - camPosY) * (invRvDv[1][1]) }; //end point
+
+	//Camera Space -> Perspective Projection
+	//轉到三維，再轉到螢幕 [-1, -1] to [1, 1] 
+	float d = 1 / tan(deg2rad(MazeWidget::maze->viewer_fov / 2)); //相機與屏幕的距離
+	float p[4][2] = { 0 }; //最後要畫在屏幕上的點
+	p[0][0] = sp[0] * d / sp[1];
+	p[0][1] = sqrt((p[0][0] * p[0][0] + d * d) / (sp[0] * sp[0] + sp[1] * sp[1]));
+
+	p[1][0] = p[0][0];
+	p[1][1] = -1 * p[0][1];
+
+	p[2][0] = ep[0] * d / ep[1];
+	p[2][1] = sqrt((p[2][0] * p[2][0] + d * d) / (ep[0] * ep[0] + ep[1] * ep[1]));
+
+	p[3][0] = p[2][0];
+	p[3][1] = -1 * p[2][1];
+
+	//畫牆
+	glColor3f(rr, gg, bb);
+	glBegin(GL_QUADS);
+	glVertex2f(p[0][0], p[0][1]);
+	glVertex2f(p[1][0], p[1][1]);
+	glVertex2f(p[3][0], p[3][1]);
+	glVertex2f(p[2][0], p[2][1]);
+	glEnd();	
+	
+
+	/*
 	// World space -> Camera Space
 
 	// 算這些矩陣 其實可以拿到外面去算 ㄏ
@@ -293,6 +352,7 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, fl
 	glVertex2f(p3.x(), p3.y());
 	glVertex2f(p4.x(), p4.y());
 	glEnd();
+	*/
 }
 
 void OpenGLWidget::drawWall(int i)
@@ -421,37 +481,3 @@ OpenGLWidget::Side OpenGLWidget::pAtWhichSide(float ax, float ay, float bx, floa
 	return d < 0 ? Side::LEFT : Side::RIGHT;
 }
 
-int OpenGLWidget::getIntersection(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float * x, float * y)
-{
-	float s02x, s02y, s10x, s10y, s32x, s32y, s_numer, t_numer, denom, t;
-	s10x = x1 - x0;
-	s10y = y1 - y0;
-	s32x = x3 - x2;
-	s32y = y3 - y2;
-
-	denom = s10x * s32y - s32x * s10y;
-	if (denom == 0)//平行或共線
-		return 0; // Collinear
-
-	s02x = x0 - x2;
-	s02y = y0 - y2;
-	s_numer = s10x * s02y - s10y * s02x;
-
-	//參數是大於等於0且小於等於1的，分子分母必須同號且分子小於等於分母
-	if ((s_numer < 0) == (denom > 0))
-		return 0; // No collision
-	t_numer = s32x * s02y - s32y * s02x;
-	if ((t_numer < 0) == (denom > 0))
-		return 0; // No collision
-	if (fabs(s_numer) > fabs(denom) || fabs(t_numer) > fabs(denom))
-		return 0; // No collision
-
-	// Collision detected
-	t = t_numer / denom;
-	if (x != NULL)
-		*x = x0 + (t * s10x);
-	if (y != NULL)
-		*y = y0 + (t * s10y);
-
-	return 1;
-}
