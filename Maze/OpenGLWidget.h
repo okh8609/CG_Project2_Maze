@@ -32,7 +32,11 @@ private:
 	// 起點 sx sy；終點 ex ey；顏色 r g b；轉換矩陣；轉換tan()
 	void drawWall(float sx, float sy, float ex, float ey, float r, float g, float b);
 	void drawWall(int index);
+
 	void drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge);
+
+	enum Side { LEFT, RIGHT, ON };
+	Side pAtWhichSide(float ax, float ay, float bx, float by, float xp, float yp);
 
 	int getIntersection(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float *x, float *y);
 	static int frameCount;
