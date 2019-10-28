@@ -9,6 +9,8 @@
 ;
 #endif
 
+int OpenGLWidget::frameCount = -1;
+
 OpenGLWidget::OpenGLWidget(QWidget *parent) : QGLWidget(parent)
 {
 
@@ -123,8 +125,7 @@ void OpenGLWidget::Mini_Map()
 //======================================================================
 void OpenGLWidget::Map_3D()
 {
-#ifdef _DEBUG  
-	static int frameCount = -1;
+#ifdef _DEBUG  	
 	++frameCount;
 	frameCount %= 10000;
 #endif
@@ -165,26 +166,12 @@ void OpenGLWidget::Map_3D()
 	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	Edge eL(camPosX, camPosZ, vLx, vLy);
 #ifdef _DEBUG  
-	if (frameCount % 100 == 0) {
+	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
 		system("CLS");
 		printf("Pos(%f, %f, %f), FOV=%f, Direction=%f (%f, %f, %f)\n",
 			camPosX, camPosY, camPosZ, camFOV, camDirection, camDirectionX, camDirectionY, camDirectionZ);
 	}
 #endif
-
-	// 定義各種轉換矩陣
-	// World space -> Camera Space
-	// rotate matrix + tranlate matrix
-	float world2camera[4][4] = {
-		{cos(camDirectionRad), 0, -1 * sin(camDirectionRad), cos(camDirectionRad) * camPosX - sin(camDirectionRad) * camPosZ},
-		{                   0, 1,                         0,                                                         camPosY},
-		{sin(camDirectionRad), 0,      cos(camDirectionRad), sin(camDirectionRad) * camPosX + cos(camDirectionRad) * camPosZ},
-		{                   0, 0,                         0,                                                               1}
-	};
-
-	//Camera Space -> Perspective Projection；並壓縮到 (-1,-1) 到 (1,1) 之間
-	//相似三角形，乘個tan()就好了
-	float perspectiveTangent = tan(camFOV_half_rad);
 
 	//拿取一些等等會用到的東西
 	auto vertices = MazeWidget::maze->vertices;
@@ -203,20 +190,17 @@ void OpenGLWidget::Map_3D()
 	}
 
 	//遞迴去畫cell吧	
-	drawCell(inCellIndex, camLeftFOV, camRightFOV, -1, world2camera, perspectiveTangent);
+	//drawCell(inCellIndex, camLeftFOV, camRightFOV, -1);
 
-	//// 準備畫牆
+	// 準備畫牆
 	//for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
-	//	//int i = 2; {
-	//	if (edges[i]->opaque) // 不透明才畫
-	//	{
-	//		//準備好要畫的四個點
-	//		Vertex *start = edges[i]->endpoints[Edge::START];
-	//		Vertex *end = edges[i]->endpoints[Edge::END];
-	//		drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
-	//			edges[i]->color[0], edges[i]->color[1], edges[i]->color[2], world2camera, perspectiveTangent);
-	//	}
+	//	drawWall(i);
 	//}
+	drawWall(0);
+	//drawWall(1);
+	//drawWall(2);
+	//drawWall(3);
+
 
 	/*若有興趣的話, 可以為地板或迷宮上貼圖, 此項目不影響評分*/
 	glBindTexture(GL_TEXTURE_2D, sky_ID);
@@ -246,38 +230,80 @@ float OpenGLWidget::deg2rad(float num)
 	return num * 3.14159265f / 180.0f;
 }
 
-void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, float g, float b, float world2camera[4][4], float perspectiveTangent)
+void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, float g, float b)
 {
-	//準備好要畫的四個點
-	float p0[4] = { sx, 0, sy, 1 };
-	float p1[4] = { ex, 0, ey, 1 };
+	// Step 1: 基底轉換
+	// World space -> Camera Space (2D)
 
-	//旋轉到相機空間 (camera point)
-	float* cp0 = Helper::matrix44_X_vector4(world2camera, p0);
-	float* cp1 = Helper::matrix44_X_vector4(world2camera, p1);
+	// 算這些矩陣 其實可以拿到外面去算 ㄏ
+	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
+	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
+	float camDv[2] = { cos(deg2rad(MazeWidget::maze->viewer_dir)), sin(deg2rad(MazeWidget::maze->viewer_dir)) }; //相機看向的向量(camera direction vector) --這角度跟我想得不太一樣哦 0.0(試誤法)
+	float camRv[2] = { cos(deg2rad(MazeWidget::maze->viewer_dir - 90)), sin(deg2rad(MazeWidget::maze->viewer_dir - 90)) }; //相機右方的向量(camera right vector)
+#ifdef _DEBUG  
+	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
+		printf("[drawWall] Pos(%f, %f), camDv=(%f, %f), camRv=(%f, %f)\n",
+			camPosX, camPosY, camDv[0], camDv[1], camRv[0], camRv[1]);
+	}
+#endif
 
-	//轉到 [-1, -1] to [1, 1] 
-	float xxx, zzz;
-	xxx = cp0[0];
-	zzz = cp0[2];
-	cp0[0] = xxx / (zzz * perspectiveTangent);
-	cp0[2] = 1 / (zzz * perspectiveTangent);
-	xxx = cp1[0];
-	zzz = cp1[2];
-	cp1[0] = xxx / (zzz * perspectiveTangent);
-	cp1[2] = 1 / (zzz * perspectiveTangent);
+	//正規化 (長度變1)
+	float temp = 0.0;
+	temp = camDv[0] * camDv[0] + camDv[1] * camDv[1];
+	camDv[0] /= temp;
+	camDv[1] /= temp;
+	temp = camRv[0] * camRv[0] + camRv[1] * camRv[1];
+	camRv[0] /= temp;
+	camRv[1] /= temp;
+
+	//找[Rv Dv]反矩陣  ??聽說 旋轉矩陣的直接transpose就是inverse了 -.-
+	temp = camRv[0] * camDv[1] - camDv[0] * camRv[1];
+	float invRvDv[2][2] = { {      camDv[1] / temp, -1 * camDv[0] / temp },
+							{ -1 * camRv[1] / temp,      camRv[0] / temp } };
+
+	// x y 轉換到 Camera Space (2D)
+	// (原座標 - camPos) 在乘上[Rv Dv]反矩陣
+	float sp[2] = { (sx - camPosX)  * (invRvDv[0][0]) + (sy - camPosY) * (invRvDv[0][1]),
+					(sx - camPosX)  * (invRvDv[1][0]) + (sy - camPosY)  *(invRvDv[1][1]) }; //start point
+	float ep[2] = { (ex - camPosX)  * (invRvDv[0][0]) + (ey - camPosY) * (invRvDv[0][1]),
+					(ex - camPosX)  * (invRvDv[1][0]) + (ey - camPosY)  *(invRvDv[1][1]) }; //end point
+
+	//Camera Space -> Perspective Projection
+	//轉到三維，再轉到螢幕 [-1, -1] to [1, 1] 
+	float d = 1 / tan(deg2rad(MazeWidget::maze->viewer_fov / 2)); //相機與屏幕的距離
+	float p[4][2] = { 0 }; //最後要畫在屏幕上的點
+	p[0][0] = sp[0] * d / sp[1];
+	p[0][1] = sqrt((p[0][0] * p[0][0] + d * d) / (sp[0] * sp[0] + sp[1] * sp[1]));
+	p[1][0] = p[0][0];
+	p[1][1] = -1 * p[0][1];
+	p[2][0] = ep[0] * d / ep[1];
+	p[2][1] = -1 * sqrt((p[2][0] * p[2][0] + d * d) / (ep[0] * ep[0] + ep[1] * ep[1]));
+	p[3][0] = p[2][0];
+	p[3][1] = -1 * p[2][1];
 
 	//畫牆
 	glColor3f(r, g, b);
 	glBegin(GL_QUADS);
-	glVertex2f(cp0[0], cp0[2]);
-	glVertex2f(cp0[0], cp0[2] * -1);
-	glVertex2f(cp1[0], cp1[2] * -1);
-	glVertex2f(cp1[0], cp1[2]);
+	glVertex2f(p[0][0], p[0][1]);
+	glVertex2f(p[1][0], p[1][1]);
+	glVertex2f(p[2][0], p[2][1]);
+	glVertex2f(p[3][0], p[3][1]);
 	glEnd();
 }
 
-void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge, float world2camera[4][4], float perspectiveTangent)
+void OpenGLWidget::drawWall(int i)
+{
+	auto edges = MazeWidget::maze->edges;
+	if (edges[i]->opaque) // 不透明才畫
+	{
+		Vertex *start = edges[i]->endpoints[Edge::START];
+		Vertex *end = edges[i]->endpoints[Edge::END];
+		drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
+			edges[i]->color[0], edges[i]->color[1], edges[i]->color[2]);
+	}
+}
+
+void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge)
 {
 	//return;
 	//拿取一些等等會用到的東西
@@ -323,7 +349,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 				// 剪裁
 				// 畫牆
 				drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], end->posn[Vertex::X], end->posn[Vertex::Y],
-					ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+					ee->color[0], ee->color[1], ee->color[2]);
 			}
 			else if ((sr == Edge::RIGHT) && (sl == Edge::RIGHT) && //交右
 				(er == Edge::LEFT || er == Edge::ON) &&
@@ -336,7 +362,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 				{
 					// 畫牆
 					drawWall(xi, yi, end->posn[Vertex::X], end->posn[Vertex::Y],
-						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+						ee->color[0], ee->color[1], ee->color[2]);
 				}
 			}
 			else if ((er == Edge::RIGHT) && (el == Edge::RIGHT) && //交右
@@ -350,7 +376,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 				{
 					// 畫牆
 					drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], xi, yi,
-						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+						ee->color[0], ee->color[1], ee->color[2]);
 				}
 			}
 			else if ((sr == Edge::LEFT) && (sl == Edge::LEFT) && //交左
@@ -364,7 +390,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 				{
 					// 畫牆
 					drawWall(xi, yi, end->posn[Vertex::X], end->posn[Vertex::Y],
-						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+						ee->color[0], ee->color[1], ee->color[2]);
 				}
 			}
 			else if ((er == Edge::LEFT) && (el == Edge::LEFT) && //交左
@@ -378,7 +404,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 				{
 					// 畫牆
 					drawWall(start->posn[Vertex::X], start->posn[Vertex::Y], xi, yi,
-						ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+						ee->color[0], ee->color[1], ee->color[2]);
 				}
 			}
 			else if ((er == Edge::LEFT) && (el == Edge::LEFT) && //雙交
@@ -401,7 +427,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 					{
 						// 畫牆
 						drawWall(xi0, yi0, xi1, yi1,
-							ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+							ee->color[0], ee->color[1], ee->color[2]);
 					}
 				}
 			}
@@ -425,11 +451,10 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 					{
 						// 畫牆
 						drawWall(xi0, yi0, xi1, yi1,
-							ee->color[0], ee->color[1], ee->color[2], world2camera, perspectiveTangent);
+							ee->color[0], ee->color[1], ee->color[2]);
 					}
 				}
 			}
-
 		}
 		else //透明的，找鄰居來畫
 		{
