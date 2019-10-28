@@ -39,7 +39,8 @@ void OpenGLWidget::paintGL()
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 		glViewport(0, 0, MazeWidget::w / 2, MazeWidget::h);
-		glOrtho(-0.1, MazeWidget::maze->max_xp + 0.1, -0.1, MazeWidget::maze->max_yp + 0.1, 0, 10);
+		float maxLength = max(MazeWidget::maze->max_xp, MazeWidget::maze->max_yp);
+		glOrtho(-0.1, maxLength + 0.1, -0.1, maxLength + 0.1, 0, 10);
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 		Mini_Map();
@@ -106,12 +107,12 @@ void OpenGLWidget::Mini_Map()
 	glColor3f(1, 1, 1);
 	//右
 	glVertex2f(viewerPosX, viewerPosY);
-	glVertex2f(viewerPosX + (MazeWidget::maze->max_xp) * len * cos(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2)),
-		viewerPosY + (MazeWidget::maze->max_yp) * len * sin(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2)));
+	glVertex2f(viewerPosX + len * cos(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2)),
+		viewerPosY + len * sin(deg2rad(MazeWidget::maze->viewer_dir - MazeWidget::maze->viewer_fov / 2)));
 	//左
 	glVertex2f(viewerPosX, viewerPosY);
-	glVertex2f(viewerPosX + (MazeWidget::maze->max_xp) * len * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)),
-		viewerPosY + (MazeWidget::maze->max_yp) * len *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)));
+	glVertex2f(viewerPosX + len * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)),
+		viewerPosY + len *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)));
 	glEnd();
 }
 
@@ -163,6 +164,7 @@ void OpenGLWidget::Map_3D()
 	float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	Edge eL(camPosX, camPosZ, vLx, vLy);
+
 #ifdef _DEBUG  
 	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
 		system("CLS");
@@ -235,44 +237,47 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, fl
 	// 算這些矩陣 其實可以拿到外面去算 ㄏ
 	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
 	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
-	float camDv[2] = { cos(deg2rad(MazeWidget::maze->viewer_dir)), sin(deg2rad(MazeWidget::maze->viewer_dir)) }; //相機看向的向量(camera direction vector)
-	float camRv[2] = { cos(deg2rad(MazeWidget::maze->viewer_dir - 90)), sin(deg2rad(MazeWidget::maze->viewer_dir - 90)) }; //相機右方的向量(camera right vector)
+	float camDv[2] = { cos(deg2rad(-MazeWidget::maze->viewer_dir)), sin(deg2rad(-MazeWidget::maze->viewer_dir)) }; //相機看向的向量(camera direction vector)
+	float camLv[2] = { cos(deg2rad(-MazeWidget::maze->viewer_dir + 90)), sin(deg2rad(-MazeWidget::maze->viewer_dir + 90)) }; //相機左方的向量(camera left vector)
+
 #ifdef _DEBUG  
 	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
-		printf("[drawWall] Pos(%f, %f), camDv=(%f, %f), camRv=(%f, %f)\n",
-			camPosX, camPosY, camDv[0], camDv[1], camRv[0], camRv[1]);
+		printf("[drawWall] Pos(%f, %f), camDv=(%f, %f), camRv=(%f, %f), s(%f, %f), e(%f, %f)\n",
+			camPosX, camPosY, camDv[0], camDv[1], camLv[0], camLv[1], sx, sy, ex, ey);
 	}
 #endif
-	QVector4D vs0(sx, 1, sy, 1);
-	QVector4D vs1(sx, -1, sy, 1);
-	QVector4D ve0(ex, -1, ey, 1);
-	QVector4D ve1(ex, 1, ey, 1);
 
+	QVector4D vs0(sy, 1, sx, 1);
+	QVector4D vs1(sy, -1, sx, 1);
+	QVector4D ve0(ey, -1, ex, 1);
+	QVector4D ve1(ey, 1, ex, 1);
 
-	QMatrix4x4 m1(camRv[0], 0, camRv[1], 0,
-		0, 1, 0, 0,
-		camDv[0], 0, camDv[1], 0,
-		0, 0, 0, 1);
+	QMatrix4x4 rotation(camDv[0], 0, camDv[1], 0,
+					0, 1, 0, 0,
+					camLv[0], 0, camLv[1], 0,
+					0, 0, 0, 1);
 
-	QMatrix4x4 m2(1, 0, 0, -1 * camPosX,
-		0, 1, 0, -1 * 0,
-		0, 0, 1, -1 * camPosY,
-		0, 0, 0, 1);
+	QMatrix4x4 translation(1, 0, 0, -camPosY,
+					0, 1, 0, 0,
+					0, 0, 1, -camPosX,
+					0, 0, 0, 1); // :))))))))))))))
 
 	float n = 0.01; // near
-	float r = 1; // right
-	float t = 1; // top
-	float f = 100; // far (inf)
-	QMatrix4x4 m3(//http://www.songho.ca/opengl/gl_projectionmatrix.html
+	float r = n * tan(deg2rad(MazeWidget::maze->viewer_fov / 2)); // right
+	float t = r; // top
+	float f = 100; // far
+
+
+	QMatrix4x4 projection(//http://www.songho.ca/opengl/gl_projectionmatrix.html
 		n / r, 0, 0, 0,
 		0, n / t, 0, 0,
 		0, 0, (f + n) / (n - f), (-2 * f*n) / (f - n),
 		0, 0, -1, 0);
 
-	auto p1 = (m3*m2*m1).map(vs0);
-	auto p2 = (m3*m2*m1).map(vs1);
-	auto p3 = (m3*m2*m1).map(ve0);
-	auto p4 = (m3*m2*m1).map(ve1);
+	QVector4D p1 = (projection * rotation * translation * vs0);
+	QVector4D p2 = (projection * rotation * translation * vs1);
+	QVector4D p3 = (projection * rotation * translation * ve0);
+	QVector4D p4 = (projection * rotation * translation * ve1);
 
 	// normalize
 	p1 /= p1.w();
@@ -322,12 +327,12 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 			//定義可以拉出視錐中左右切邊的點
 			float dist = 1; //左右切邊的長度 (預設0.1)
 			//右切邊
-			float vRx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
-			float vRy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
+			float vRx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
+			float vRy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
 			QLineF eyeR(camPosX, camPosY, vRx, vRy);
 			//左切邊
-			float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
-			float vLy = camPosY + (MazeWidget::maze->max_yp) * dist *  sin(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
+			float vLx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
+			float vLy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
 			QLineF eyeL(camPosX, camPosY, vLx, vLy);
 
 #ifdef _DEBUG  
@@ -336,14 +341,11 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 					camPosX, camPosY, vRx, vRy, camPosX, camPosY, vLx, vLy);
 			}
 #endif
-			QLineF eee(ee->endpoints[Edge::START]->posn[Vertex::X], ee->endpoints[Edge::START]->posn[Vertex::Y],
+			QLineF edgeLine(ee->endpoints[Edge::START]->posn[Vertex::X], ee->endpoints[Edge::START]->posn[Vertex::Y],
 				ee->endpoints[Edge::END]->posn[Vertex::X], ee->endpoints[Edge::END]->posn[Vertex::Y]);
 
-			auto sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.x1(), eee.y1()); //起始點 和 右切邊 的關係
-			auto er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.y2(), eee.y2()); //終點 和 右切邊 的關係
-			auto sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x1(), eee.y1()); //起始點 和 左切邊 的關係
-			auto el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x2(), eee.y2()); //終點 和 左切邊 的關係
-
+			auto sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), edgeLine.x1(), edgeLine.y1()); //起始點 和 右切邊 的關係
+			auto er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), edgeLine.x2(), edgeLine.y2()); //終點 和 右切邊 的關係
 			// 剪裁
 
 			//針對右切邊做剪裁
@@ -354,25 +356,23 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 			else if (sr == Side::RIGHT && er != Side::RIGHT) //起點超出右視錐
 			{
 				QPointF *ppp = new QPointF();
-				if (eyeR.intersect(eee, ppp) != QLineF::NoIntersection)
+				if (eyeR.intersect(edgeLine, ppp) != QLineF::NoIntersection)
 				{
-					eee.setP1(*ppp);
+					edgeLine.setP1(*ppp);
 				}
 			}
 			else if (sr != Side::RIGHT && er == Side::RIGHT) //終點超出右視錐
 			{
 				QPointF *ppp = new QPointF();
-				if (eyeR.intersect(eee, ppp) != QLineF::NoIntersection)
+				if (eyeR.intersect(edgeLine, ppp) != QLineF::NoIntersection)
 				{
-					eee.setP2(*ppp);
+					edgeLine.setP2(*ppp);
 				}
 			}
 			//兩點都沒超出
 
-			sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.x1(), eee.y1()); //起始點 和 右切邊 的關係
-			er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.y2(), eee.y2()); //終點 和 右切邊 的關係
-			sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x1(), eee.y1()); //起始點 和 左切邊 的關係
-			el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x2(), eee.y2()); //終點 和 左切邊 的關係
+			auto sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), edgeLine.x1(), edgeLine.y1()); //起始點 和 左切邊 的關係
+			auto el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), edgeLine.x2(), edgeLine.y2()); //終點 和 左切邊 的關係
 
 		   //針對左切邊做剪裁
 			if (sl == Side::LEFT && el == Side::LEFT) // OUT OUT
@@ -382,19 +382,19 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 			else if (sl == Side::LEFT && el != Side::LEFT) //起點超出左視錐
 			{
 				QPointF *ppp = new QPointF();
-				if (eyeL.intersect(eee, ppp) != QLineF::NoIntersection)
-					eee.setP1(*ppp);
+				if (eyeL.intersect(edgeLine, ppp) != QLineF::NoIntersection)
+					edgeLine.setP1(*ppp);
 			}
 			else if (sl != Side::LEFT && el == Side::LEFT) //終點超出左視錐
 			{
 				QPointF *ppp = new QPointF();
-				if (eyeL.intersect(eee, ppp) != QLineF::NoIntersection)
-					eee.setP2(*ppp);
+				if (eyeL.intersect(edgeLine, ppp) != QLineF::NoIntersection)
+					edgeLine.setP2(*ppp);
 			}
 			//兩點都沒超出
 
 			// 畫牆
-			drawWall(eee.x1(), eee.y1(), eee.x2(), eee.y2(), ee->color[0], ee->color[1], ee->color[2]);
+			drawWall(edgeLine.x1(), edgeLine.y1(), edgeLine.x2(), edgeLine.y2(), ee->color[0], ee->color[1], ee->color[2]);
 		}
 		else //透明的，找鄰居來畫
 		{
@@ -406,16 +406,19 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 // 判斷(xp,yp)在ab向量的哪一惻
 OpenGLWidget::Side OpenGLWidget::pAtWhichSide(float ax, float ay, float bx, float by, float xp, float yp)
 {
-	float A = by - ay, B = ax - bx, C = bx * ay - ax * by; //直線方程為Ax+By+C=0
-	float D = A * xp + B * yp + C;
+	//float A = by - ay, B = ax - bx, C = bx * ay - ax * by; //直線方程為Ax+By+C=0
+	//float D = A * xp + B * yp + C;
 
-	if (D < 0)
-		return Side::LEFT;
-	else if (D > 0)
-		return Side::RIGHT;
-	else if (D == 0)
-		return Side::ON;
+	//if (D < 0)
+	//	return Side::LEFT;
+	//else if (D > 0)
+	//	return Side::RIGHT;
+	//else if (D == 0)
+	//	return Side::ON;
 
+	float d = (xp - ax) * (by - ay) - (yp - ay) * (bx - ax);
+
+	return d < 0 ? Side::LEFT : Side::RIGHT;
 }
 
 int OpenGLWidget::getIntersection(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float * x, float * y)
