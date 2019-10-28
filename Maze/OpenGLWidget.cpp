@@ -228,10 +228,9 @@ float OpenGLWidget::deg2rad(float num)
 	return num * 3.14159265f / 180.0f;
 }
 
-void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, float g, float b)
+void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, float gg, float bb)
 {
-	// Step 1: 基底轉換
-	// World space -> Camera Space (2D)
+	// World space -> Camera Space
 
 	// 算這些矩陣 其實可以拿到外面去算 ㄏ
 	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
@@ -244,47 +243,50 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, flo
 			camPosX, camPosY, camDv[0], camDv[1], camRv[0], camRv[1]);
 	}
 #endif
+	QVector4D vs0(sx, 1, sy, 1);
+	QVector4D vs1(sx, -1, sy, 1);
+	QVector4D ve0(ex, -1, ey, 1);
+	QVector4D ve1(ex, 1, ey, 1);
 
-	//正規化 (長度變1)
-	float temp = 0.0;
 
-	//找[Rv Dv]反矩陣  ??聽說 旋轉矩陣的直接transpose就是inverse了 =.=??
-	temp = camRv[0] * camDv[1] - camDv[0] * camRv[1];
-	//float invRvDv[2][2] = { {      camDv[1] / temp, -1 * camDv[0] / temp },
-	//						{ -1 * camRv[1] / temp,      camRv[0] / temp } };
-	float invRvDv[2][2] = { {camRv[0], camRv[1]},
-		     				{camDv[0], camDv[1]} };
+	QMatrix4x4 m1(camRv[0], 0, camRv[1], 0,
+		0, 1, 0, 0,
+		camDv[0], 0, camDv[1], 0,
+		0, 0, 0, 1);
 
-	// x y 轉換到 Camera Space (2D)
-	// (原座標 - camPos) 在乘上[Rv Dv]反矩陣
-	float sp[2] = { (sx - camPosX)  * (invRvDv[0][0]) + (sy - camPosY) * (invRvDv[0][1]),
-					(sx - camPosX)  * (invRvDv[1][0]) + (sy - camPosY) * (invRvDv[1][1]) }; //start point
-	float ep[2] = { (ex - camPosX)  * (invRvDv[0][0]) + (ey - camPosY) * (invRvDv[0][1]),
-					(ex - camPosX)  * (invRvDv[1][0]) + (ey - camPosY) * (invRvDv[1][1]) }; //end point
+	QMatrix4x4 m2(1, 0, 0, -1 * camPosX,
+		0, 1, 0, -1 * 0,
+		0, 0, 1, -1 * camPosY,
+		0, 0, 0, 1);
 
-	//Camera Space -> Perspective Projection
-	//轉到三維，再轉到螢幕 [-1, -1] to [1, 1] 
-	float d = 1 / tan(deg2rad(MazeWidget::maze->viewer_fov / 2)); //相機與屏幕的距離
-	float p[4][2] = { 0 }; //最後要畫在屏幕上的點
-	p[0][0] = sp[0] * d / sp[1];
-	p[0][1] = sqrt((p[0][0] * p[0][0] + d * d) / (sp[0] * sp[0] + sp[1] * sp[1]));
+	float n = 0.01; // near
+	float r = 1; // right
+	float t = 1; // top
+	float f = 100; // far (inf)
+	QMatrix4x4 m3(//http://www.songho.ca/opengl/gl_projectionmatrix.html
+		n / r, 0, 0, 0,
+		0, n / t, 0, 0,
+		0, 0, (f + n) / (n - f), (-2 * f*n) / (f - n),
+		0, 0, -1, 0);
 
-	p[1][0] = p[0][0];
-	p[1][1] = -1 * p[0][1];
+	auto p1 = (m3*m2*m1).map(vs0);
+	auto p2 = (m3*m2*m1).map(vs1);
+	auto p3 = (m3*m2*m1).map(ve0);
+	auto p4 = (m3*m2*m1).map(ve1);
 
-	p[2][0] = ep[0] * d / ep[1];
-	p[2][1] = sqrt((p[2][0] * p[2][0] + d * d) / (ep[0] * ep[0] + ep[1] * ep[1]));
-
-	p[3][0] = p[2][0];
-	p[3][1] = -1 * p[2][1];
+	// normalize
+	p1 /= p1.w();
+	p2 /= p2.w();
+	p3 /= p3.w();
+	p4 /= p4.w();
 
 	//畫牆
-	glColor3f(r, g, b);
+	glColor3f(rr, gg, bb);
 	glBegin(GL_QUADS);
-	glVertex2f(p[0][0], p[0][1]);
-	glVertex2f(p[1][0], p[1][1]);
-	glVertex2f(p[3][0], p[3][1]);
-	glVertex2f(p[2][0], p[2][1]);
+	glVertex2f(p1.x(), p1.y());
+	glVertex2f(p2.x(), p2.y());
+	glVertex2f(p3.x(), p3.y());
+	glVertex2f(p4.x(), p4.y());
 	glEnd();
 }
 
@@ -335,7 +337,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 			}
 #endif
 			QLineF eee(ee->endpoints[Edge::START]->posn[Vertex::X], ee->endpoints[Edge::START]->posn[Vertex::Y],
-					   ee->endpoints[Edge::END]->posn[Vertex::X], ee->endpoints[Edge::END]->posn[Vertex::Y]);
+				ee->endpoints[Edge::END]->posn[Vertex::X], ee->endpoints[Edge::END]->posn[Vertex::Y]);
 
 			auto sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.x1(), eee.y1()); //起始點 和 右切邊 的關係
 			auto er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.y2(), eee.y2()); //終點 和 右切邊 的關係
@@ -367,12 +369,12 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 			}
 			//兩點都沒超出
 
-			 sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.x1(), eee.y1()); //起始點 和 右切邊 的關係
-			 er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.y2(), eee.y2()); //終點 和 右切邊 的關係
-			 sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x1(), eee.y1()); //起始點 和 左切邊 的關係
-			 el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x2(), eee.y2()); //終點 和 左切邊 的關係
+			sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.x1(), eee.y1()); //起始點 和 右切邊 的關係
+			er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), eee.y2(), eee.y2()); //終點 和 右切邊 的關係
+			sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x1(), eee.y1()); //起始點 和 左切邊 的關係
+			el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), eee.x2(), eee.y2()); //終點 和 左切邊 的關係
 
-			//針對左切邊做剪裁
+		   //針對左切邊做剪裁
 			if (sl == Side::LEFT && el == Side::LEFT) // OUT OUT
 			{
 				continue;

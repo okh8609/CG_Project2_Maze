@@ -2,6 +2,9 @@
 #include <QGLWidget>
 #include <QString>
 #include <QDir>
+#include <QMatrix4x4>
+#include <QVector4D>
+
 #define DEBUG_OUTPUT_RATE 20
 
 using namespace std;
