@@ -195,7 +195,7 @@ void OpenGLWidget::Map_3D()
 	int inCellIndex = -1;//相機所在的cell 的index
 	for (int i = 0; i != MazeWidget::maze->num_cells; ++i)
 	{
-		if (cells[i]->Point_In_Cell(camPosX, camPosZ))
+		if (cells[i]->Point_In_Cell(MazeWidget::maze->viewer_posn[Maze::X], MazeWidget::maze->viewer_posn[Maze::Y]))
 		{
 			inCellIndex = i;
 			break;
@@ -279,7 +279,7 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float r, flo
 
 void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge, float world2camera[4][4], float perspectiveTangent)
 {
-	return;
+	//return;
 	//拿取一些等等會用到的東西
 	auto vertices = MazeWidget::maze->vertices;
 	auto edges = MazeWidget::maze->edges;
@@ -429,6 +429,7 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 					}
 				}
 			}
+
 		}
 		else //透明的，找鄰居來畫
 		{
