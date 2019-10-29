@@ -32,10 +32,8 @@ private:
 	float top_z;
 	float but_z;
 
-	// 起點 sx sy；終點 ex ey；顏色 r g b；轉換矩陣；轉換tan()
 	void drawWall(float sx, float sy, float ex, float ey, float r, float g, float b);
 	void drawWall(int index);
-
 	void drawCell(int currCellIndex, QLineF eyeL, QLineF eyeR, int prevEdge);
 
 	enum Side { LEFT, RIGHT, ON };
