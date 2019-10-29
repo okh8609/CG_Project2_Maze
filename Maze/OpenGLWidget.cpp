@@ -112,7 +112,7 @@ void OpenGLWidget::Mini_Map()
 	//左
 	glVertex2f(viewerPosX, viewerPosY);
 	glVertex2f(viewerPosX + len * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)),
-		viewerPosY + len *  sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)));
+		viewerPosY + len * sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2)));
 	glEnd();
 }
 
@@ -232,7 +232,7 @@ float OpenGLWidget::deg2rad(float num)
 
 void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, float gg, float bb)
 {
-	
+
 	// World space -> Camera Space (2D)
 
 	// 算這些矩陣 其實可以拿到外面去算 ㄏ
@@ -255,7 +255,7 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, fl
 	//float invRvDv[2][2] = { {      camDv[1] / temp, -1 * camDv[0] / temp },
 	//						{ -1 * camRv[1] / temp,      camRv[0] / temp } };
 	float invRvDv[2][2] = { {camRv[0], camRv[1]},
-		     				{camDv[0], camDv[1]} };
+							{camDv[0], camDv[1]} };
 
 	// x y 轉換到 Camera Space (2D)
 	// (原座標 - camPos) 在乘上[Rv Dv]反矩陣
@@ -287,10 +287,10 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, fl
 	glVertex2f(p[1][0], p[1][1]);
 	glVertex2f(p[3][0], p[3][1]);
 	glVertex2f(p[2][0], p[2][1]);
-	glEnd();	
-	
+	glEnd();
 
-	/*
+
+	/* 這段code也是可以正常運作的，他是用矩陣下去乘。
 	// World space -> Camera Space
 
 	// 算這些矩陣 其實可以拿到外面去算 ㄏ
@@ -299,7 +299,7 @@ void OpenGLWidget::drawWall(float sx, float sy, float ex, float ey, float rr, fl
 	float camDv[2] = { cos(deg2rad(-MazeWidget::maze->viewer_dir)), sin(deg2rad(-MazeWidget::maze->viewer_dir)) }; //相機看向的向量(camera direction vector)
 	float camLv[2] = { cos(deg2rad(-MazeWidget::maze->viewer_dir + 90)), sin(deg2rad(-MazeWidget::maze->viewer_dir + 90)) }; //相機左方的向量(camera left vector)
 
-#ifdef _DEBUG  
+#ifdef _DEBUG
 	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
 		printf("[drawWall] Pos(%f, %f), camDv=(%f, %f), camRv=(%f, %f), s(%f, %f), e(%f, %f)\n",
 			camPosX, camPosY, camDv[0], camDv[1], camLv[0], camLv[1], sx, sy, ex, ey);
@@ -378,86 +378,114 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 	for (int i = 0; i != 4; ++i)
 	{
 		auto ee = cc->edges[i];
+		QLineF edgeLine(ee->endpoints[Edge::START]->posn[Vertex::X], ee->endpoints[Edge::START]->posn[Vertex::Y],
+			ee->endpoints[Edge::END]->posn[Vertex::X], ee->endpoints[Edge::END]->posn[Vertex::Y]);
 
-		if (ee->opaque) //不透明的牆邊
-		{
-			//觀察者位置
-			float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
-			float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
-			//定義可以拉出視錐中左右切邊的點
-			float dist = 1; //左右切邊的長度 (預設0.1)
-			//右切邊
-			float vRx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
-			float vRy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
-			QLineF eyeR(camPosX, camPosY, vRx, vRy);
-			//左切邊
-			float vLx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
-			float vLy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
-			QLineF eyeL(camPosX, camPosY, vLx, vLy);
+		// 將edgeLine剪裁到目前的視錐內============================================================================
+
+		//觀察者位置
+		float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
+		float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
+		//定義可以拉出視錐中左右切邊的點
+		float dist = 1; //左右切邊的長度 (預設0.1)
+		//右切邊
+		float vRx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
+		float vRy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
+		QLineF eyeR(camPosX, camPosY, vRx, vRy);
+		//左切邊
+		float vLx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
+		float vLy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
+		QLineF eyeL(camPosX, camPosY, vLx, vLy);
 
 #ifdef _DEBUG  
-			if (frameCount % DEBUG_OUTPUT_RATE == 0) {
-				printf("[drawCell] eR(%f, %f, %f, %f), eL(%f, %f, %f, %f)\n",
-					camPosX, camPosY, vRx, vRy, camPosX, camPosY, vLx, vLy);
-			}
+		if (frameCount % DEBUG_OUTPUT_RATE == 0) {
+			printf("[drawCell] eR(%f, %f, %f, %f), eL(%f, %f, %f, %f)\n",
+				camPosX, camPosY, vRx, vRy, camPosX, camPosY, vLx, vLy);
+		}
 #endif
-			QLineF edgeLine(ee->endpoints[Edge::START]->posn[Vertex::X], ee->endpoints[Edge::START]->posn[Vertex::Y],
-				ee->endpoints[Edge::END]->posn[Vertex::X], ee->endpoints[Edge::END]->posn[Vertex::Y]);
+		auto sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), edgeLine.x1(), edgeLine.y1()); //起始點 和 右切邊 的關係
+		auto er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), edgeLine.x2(), edgeLine.y2()); //終點 和 右切邊 的關係
 
-			auto sr = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), edgeLine.x1(), edgeLine.y1()); //起始點 和 右切邊 的關係
-			auto er = pAtWhichSide(eyeR.x1(), eyeR.y1(), eyeR.x2(), eyeR.y2(), edgeLine.x2(), edgeLine.y2()); //終點 和 右切邊 的關係
-			// 剪裁
+		//針對右切邊做剪裁
+		if (sr == Side::RIGHT && er == Side::RIGHT) // OUT OUT
+		{
+			continue;
+		}
+		else if (sr == Side::RIGHT && er != Side::RIGHT) //起點超出右視錐
+		{
+			QPointF *ppp = new QPointF();
+			if (eyeR.intersect(edgeLine, ppp) != QLineF::NoIntersection)
+				edgeLine.setP1(*ppp);
+		}
+		else if (sr != Side::RIGHT && er == Side::RIGHT) //終點超出右視錐
+		{
+			QPointF *ppp = new QPointF();
+			if (eyeR.intersect(edgeLine, ppp) != QLineF::NoIntersection)
+				edgeLine.setP2(*ppp);
+		}
+		//兩點都沒超出
 
-			//針對右切邊做剪裁
-			if (sr == Side::RIGHT && er == Side::RIGHT) // OUT OUT
-			{
-				continue;
-			}
-			else if (sr == Side::RIGHT && er != Side::RIGHT) //起點超出右視錐
-			{
-				QPointF *ppp = new QPointF();
-				if (eyeR.intersect(edgeLine, ppp) != QLineF::NoIntersection)
-				{
-					edgeLine.setP1(*ppp);
-				}
-			}
-			else if (sr != Side::RIGHT && er == Side::RIGHT) //終點超出右視錐
-			{
-				QPointF *ppp = new QPointF();
-				if (eyeR.intersect(edgeLine, ppp) != QLineF::NoIntersection)
-				{
-					edgeLine.setP2(*ppp);
-				}
-			}
-			//兩點都沒超出
+		auto sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), edgeLine.x1(), edgeLine.y1()); //起始點 和 左切邊 的關係
+		auto el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), edgeLine.x2(), edgeLine.y2()); //終點 和 左切邊 的關係
 
-			auto sl = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), edgeLine.x1(), edgeLine.y1()); //起始點 和 左切邊 的關係
-			auto el = pAtWhichSide(eyeL.x1(), eyeL.y1(), eyeL.x2(), eyeL.y2(), edgeLine.x2(), edgeLine.y2()); //終點 和 左切邊 的關係
+	   //針對左切邊做剪裁
+		if (sl == Side::LEFT && el == Side::LEFT) // OUT OUT
+		{
+			continue;
+		}
+		else if (sl == Side::LEFT && el != Side::LEFT) //起點超出左視錐
+		{
+			QPointF *ppp = new QPointF();
+			if (eyeL.intersect(edgeLine, ppp) != QLineF::NoIntersection)
+				edgeLine.setP1(*ppp);
+		}
+		else if (sl != Side::LEFT && el == Side::LEFT) //終點超出左視錐
+		{
+			QPointF *ppp = new QPointF();
+			if (eyeL.intersect(edgeLine, ppp) != QLineF::NoIntersection)
+				edgeLine.setP2(*ppp);
+		}
+		//兩點都沒超出
 
-		   //針對左切邊做剪裁
-			if (sl == Side::LEFT && el == Side::LEFT) // OUT OUT
-			{
-				continue;
-			}
-			else if (sl == Side::LEFT && el != Side::LEFT) //起點超出左視錐
-			{
-				QPointF *ppp = new QPointF();
-				if (eyeL.intersect(edgeLine, ppp) != QLineF::NoIntersection)
-					edgeLine.setP1(*ppp);
-			}
-			else if (sl != Side::LEFT && el == Side::LEFT) //終點超出左視錐
-			{
-				QPointF *ppp = new QPointF();
-				if (eyeL.intersect(edgeLine, ppp) != QLineF::NoIntersection)
-					edgeLine.setP2(*ppp);
-			}
-			//兩點都沒超出
+	// ============================================================================================================
 
+		if (ee->opaque) // 不透明的牆邊
+		{
 			// 畫牆
 			drawWall(edgeLine.x1(), edgeLine.y1(), edgeLine.x2(), edgeLine.y2(), ee->color[0], ee->color[1], ee->color[2]);
 		}
-		else //透明的，找鄰居來畫
+		else // 透明的，找鄰居來畫
 		{
+			// 不要跳回去前一個cell
+			if (ee->index == prevEdge) 
+				continue;
+
+			// 設定新的視錐 為這條透明邊可以看出去的範圍
+
+			QLineF* newEyeR = NULL; // 新視錐的 右切邊
+			QLineF* newEyeL = NULL; // 新視錐的 左切邊
+			// 確定左右
+			if (pAtWhichSide(camPosX, camPosY, edgeLine.x1(), edgeLine.y1(), edgeLine.x2(), edgeLine.y2()) == Side::LEFT)
+			{
+				newEyeR = new QLineF(camPosX, camPosY, edgeLine.x1(), edgeLine.y1());
+				newEyeL = new QLineF(camPosX, camPosY, edgeLine.x2(), edgeLine.y2());
+			}
+			else
+			{
+				newEyeL = new QLineF(camPosX, camPosY, edgeLine.x1(), edgeLine.y1());
+				newEyeR = new QLineF(camPosX, camPosY, edgeLine.x2(), edgeLine.y2());
+			}
+
+			//找出角度 (注意可能有負的夾角；就是當新的視錐，同時位在視線的左邊或右邊)
+			float camDirection = fmod(MazeWidget::maze->viewer_dir, 360); //看向的角度(跟X軸的夾角) % 360
+			float newLeftFOV = newEyeL->angle() - camDirection;
+			float newRightFOV = camDirection - newEyeR->angle();
+
+			// 遞迴呼叫
+			if(currCellIndex != ee->neighbors[Edge::LEFT]->index)
+				drawCell(ee->neighbors[Edge::LEFT]->index, newLeftFOV, newRightFOV, ee->index);
+			else 
+				drawCell(ee->neighbors[Edge::RIGHT]->index, newLeftFOV, newRightFOV, ee->index);
 
 		}
 	}
