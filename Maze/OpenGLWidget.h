@@ -36,7 +36,7 @@ private:
 	void drawWall(float sx, float sy, float ex, float ey, float r, float g, float b);
 	void drawWall(int index);
 
-	void drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge);
+	void drawCell(int currCellIndex, QLineF eyeL, QLineF eyeR, int prevEdge);
 
 	enum Side { LEFT, RIGHT, ON };
 	Side pAtWhichSide(float ax, float ay, float bx, float by, float xp, float yp);

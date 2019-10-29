@@ -137,6 +137,7 @@ void OpenGLWidget::Map_3D()
 
 	// 畫右邊區塊的所有東西
 
+	/*
 	//觀察者位置
 	float camPosX = MazeWidget::maze->viewer_posn[Maze::X] * -1; // x1
 	float camPosY = 0; // y1
@@ -164,6 +165,7 @@ void OpenGLWidget::Map_3D()
 	float vLx = camPosX + (MazeWidget::maze->max_xp) * dist * cos(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	float vLy = camPosY + (MazeWidget::maze->max_yp) * dist * sin(deg2rad(MazeWidget::maze->viewer_dir + MazeWidget::maze->viewer_fov / 2));
 	Edge eL(camPosX, camPosZ, vLx, vLy);
+	*/
 
 #ifdef _DEBUG  
 	if (frameCount % DEBUG_OUTPUT_RATE == 0) {
@@ -190,7 +192,22 @@ void OpenGLWidget::Map_3D()
 	}
 
 	//遞迴去畫cell吧	
-	drawCell(inCellIndex, camFOV / 2, camFOV / 2, -1);
+	//觀察者位置
+	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
+	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
+	float camFOV = MazeWidget::maze->viewer_fov; //視野大小FOV
+	//定義可以拉出視錐中左右切邊的點
+	float dist = 1; //左右切邊的長度 (預設0.1)
+	//右切邊
+	float vRx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir - camFOV / 2));
+	float vRy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir - camFOV / 2));
+	QLineF eyeR(camPosX, camPosY, vRx, vRy);
+	//左切邊
+	float vLx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir + camFOV / 2));
+	float vLy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir + camFOV / 2));
+	QLineF eyeL(camPosX, camPosY, vLx, vLy);
+
+	drawCell(inCellIndex, eyeL, eyeR, -1);
 
 	// 準備畫牆
 	//for (int i = 0; i < MazeWidget::maze->num_edges; i++) {
@@ -367,36 +384,23 @@ void OpenGLWidget::drawWall(int i)
 	}
 }
 
-void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, int prevEdge)
+void OpenGLWidget::drawCell(int currCellIndex, QLineF eyeL, QLineF eyeR, int prevEdge)
 {
 	//拿取一些等等會用到的東西
 	auto vertices = MazeWidget::maze->vertices;
 	auto edges = MazeWidget::maze->edges;
-	auto cells = MazeWidget::maze->cells;
-	auto cc = cells[currCellIndex];
+	auto cells = MazeWidget::maze->cells;	
+
+	float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
+	float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
 
 	for (int i = 0; i != 4; ++i)
 	{
-		auto ee = cc->edges[i];
+		auto ee = cells[currCellIndex]->edges[i];
 		QLineF edgeLine(ee->endpoints[Edge::START]->posn[Vertex::X], ee->endpoints[Edge::START]->posn[Vertex::Y],
 			ee->endpoints[Edge::END]->posn[Vertex::X], ee->endpoints[Edge::END]->posn[Vertex::Y]);
 
 		// 將edgeLine剪裁到目前的視錐內============================================================================
-
-		//觀察者位置
-		float camPosX = MazeWidget::maze->viewer_posn[Maze::X];
-		float camPosY = MazeWidget::maze->viewer_posn[Maze::Y];
-		//定義可以拉出視錐中左右切邊的點
-		float dist = 1; //左右切邊的長度 (預設0.1)
-		//右切邊
-		float vRx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
-		float vRy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir - rightFOV));
-		QLineF eyeR(camPosX, camPosY, vRx, vRy);
-		//左切邊
-		float vLx = camPosX + dist * cos(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
-		float vLy = camPosY + dist * sin(deg2rad(MazeWidget::maze->viewer_dir + leftFOV));
-		QLineF eyeL(camPosX, camPosY, vLx, vLy);
-
 #ifdef _DEBUG  
 		if (frameCount % DEBUG_OUTPUT_RATE == 0) {
 			printf("[drawCell] eR(%f, %f, %f, %f), eL(%f, %f, %f, %f)\n",
@@ -476,16 +480,11 @@ void OpenGLWidget::drawCell(int currCellIndex, float leftFOV, float rightFOV, in
 				newEyeR = new QLineF(camPosX, camPosY, edgeLine.x2(), edgeLine.y2());
 			}
 
-			//找出角度 (注意可能有負的夾角；就是當新的視錐，同時位在視線的左邊或右邊)
-			float camDirection = fmod(MazeWidget::maze->viewer_dir, 360); //看向的角度(跟X軸的夾角) % 360
-			float newLeftFOV = newEyeL->angle() - camDirection;
-			float newRightFOV = camDirection - newEyeR->angle();
-
 			// 遞迴呼叫
 			if(currCellIndex != ee->neighbors[Edge::LEFT]->index)
-				drawCell(ee->neighbors[Edge::LEFT]->index, newLeftFOV, newRightFOV, ee->index);
+				drawCell(ee->neighbors[Edge::LEFT]->index, *newEyeL, *newEyeR, ee->index);
 			else 
-				drawCell(ee->neighbors[Edge::RIGHT]->index, newLeftFOV, newRightFOV, ee->index);
+				drawCell(ee->neighbors[Edge::RIGHT]->index, *newEyeL, *newEyeR, ee->index);
 
 		}
 	}
